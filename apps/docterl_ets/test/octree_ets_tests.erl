@@ -13,7 +13,7 @@ make_area_test_() -> { "test the computation of the area spec",
 										?_test(
 										begin
 											Ret = octree_ets:make_area_code(1, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}),
-											?debugMsg(Ret)
+											?debugFmt("generated : ~p~n", [Ret])
 										end)
 									   ] end }}.
 

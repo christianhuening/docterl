@@ -21,6 +21,10 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
+-ifdef(TEST).
+-export([make_area_code/3]).
+-endif.
+
 %% ====================================================================
 %% External functions
 %% ====================================================================
@@ -186,7 +190,7 @@ make_area_code(TreeId, Position, BBSize) ->
 	%% TODO: check that position and/or bbsize are not greater than 1.0
 	AreaSpec = make_area_code_step([], {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, Position, BBSize, 10),
 	%% TODO: test if list not empty
-    [TreeId|lists:inverse(AreaSpec)].
+    [TreeId|lists:reverse(AreaSpec)].
 
 
 make_area_code_step(_AreaSpec, _MinPos, _MaxPos, _ObjPos, _BBSize, ResRest) when ResRest < 0 -> [];
