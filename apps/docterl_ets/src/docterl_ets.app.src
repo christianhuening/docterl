@@ -1,0 +1,12 @@
+{application, docterl_ets,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { docterl_ets_app, []}},
+  {env, []}
+ ]}.
