@@ -2,6 +2,11 @@
 %%% Author  : sage
 %%% Description :
 %%%
+%%%  Important note: The 'objs' table does not hold any information 
+%%%  about the objects maneged by this octree, beyond the position.
+%%%  If there is additional data to be maintained, this needs to be done
+%%%  by the application using this code in a separate table/database
+%%%
 %%% Created : 04.08.2012
 %%% -------------------------------------------------------------------
 -module(octree_ets).
@@ -12,17 +17,24 @@
 %% --------------------------------------------------------------------
 -include_lib("eunit/include/eunit.hrl").
 
+-define(MAX_DEPTH_DEFAULT, 10).
+
 -type vec_3d() :: {float(), float(), float()}.
+
+-record(state, {trees_tid, areas_tid, objs_tid}).
+
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/0, make_tree/1, add_obj/4, add_obj_lazy/4, update_position/6, update_position_lazy/6]).
+-export([start_link/0, make_tree/1, add_obj/3, remove_obj/2, 
+         update_position/4]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -ifdef(TEST).
--export([make_area_code/3, make_area_code_step/6, make_tree_id/0, do_make_tree/1]).
+-export([make_area_code/4, make_area_code_step/6, make_tree_id/1, make_obj_id/1, 
+         do_make_tree/2, do_make_obj/2]).
 -endif.
 
 %% ====================================================================
@@ -54,40 +66,28 @@ start_link() -> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 make_tree(Options) -> gen_server:call({local, ?MODULE}, {make_tree, Options}).
 
 %% --------------------------------------------------------------------
-%% Function: add_obj/4
+%% Function: add_obj/3
 %% Description: add an object to a tree. the cost of computing the proper 
-%%              position in the tree are borne by this thread. See 
-%%              add_obj_lazy/4 if the server should carry the load.
+%%              position in the tree are borne by this thread.
 %% Returns: {ok, AreaSpec}
 %%          {error, invalid_tree}
 %%          {error, Reason}
 %% --------------------------------------------------------------------
--spec add_obj(TreeId::pos_integer(), 
-              Obj::term(), Position::vec_3d(), BBSize::vec_3d()) -> {ok, AreaSpec::list()} | {error, term()}.
-add_obj(TreeId, Obj, Position, BBSize) -> 
-	AreaSpec = make_area_code(TreeId, Position, BBSize),
-	Ret = gen_server:call({local, ?MODULE}, {add_obj, AreaSpec, Obj}),
-    case Ret of
-      {ok, AreaSpec} -> {ok, AreaSpec};
-      {error, Reason} -> {error, Reason};
-      _ -> {error, { unknown_failure, Ret}}
-    end.
+-spec add_obj(TreeId::pos_integer(), Position::vec_3d(), BBSize::vec_3d()) -> 
+          {ok, ObjId::pos_integer(), AreaSpec::list()} | {error, term()}.
+add_obj(TreeId, Position, BBSize) -> 
+    gen_server:call({local, ?MODULE}, {add_obj, TreeId, Position, BBSize}).
 
-%% have others do the work of computing the 
--spec add_obj_lazy(TreeId::pos_integer(), 
-              Obj::term(), Position::vec_3d(), BBSize::vec_3d()) -> {ok, AreaSpec::list()} | {error, term()}.
-add_obj_lazy(_TreeId, _Obj, _Position, _BBSize) -> {error, not_implemented}.
-
--spec update_position(TreeId::pos_integer(), Obj::term(), 
-					  OldPos::vec_3d(), OldBBSize::vec_3d(),
+-spec remove_obj(TreeId::pos_integer(), ObjId::pos_integer()) -> 
+          ok | {error, unkown_tree} | {error, invalid_obj} | {error, Reason::term()}.
+remove_obj(TreeId, ObjId) ->
+    gen_server:call({local, ?MODULE}, {remove_obj, TreeId, ObjId}).
+                 
+-spec update_position(TreeId::pos_integer(), ObjId::pos_integer(), 
 					  NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, AreaSpec::list()} | {error, term()}.
-update_position(_TreeId, _Obj, _OldPos, _OldBBSize, _NewPos, _NewBBSize) -> {error, not_implemented}.
+update_position(TreeId, ObjId, NewPos, NewBBSize) -> 
+    gen_server:call({local, ?MODULE}, {update_position, TreeId, ObjId, NewPos, NewBBSize}).
 
--spec update_position_lazy(TreeId::pos_integer(), Obj::term(), 
-					  OldPos::vec_3d(), OldBBSize::vec_3d(),
-					  NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, AreaSpec::list()} | {error, term()}.
-update_position_lazy(_TreeId, _Obj, _OldPos, _OldBBSize, _NewPos, _NewBBSize) -> {error, not_implemented}.
-	
 %% ====================================================================
 %% Server functions
 %% ====================================================================
@@ -101,9 +101,10 @@ update_position_lazy(_TreeId, _Obj, _OldPos, _OldBBSize, _NewPos, _NewBBSize) ->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-	ets:new(trees, [set, named_table, {read_concurrency, true}]),
-	ets:new(areas, [set, named_table]),
-    {ok, ?MODULE}.
+	TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
+    ObjsTId = ets:new(objs, [set]),
+    AreasTId = ets:new(areas, [set]),
+    {ok, #state{trees_tid = TreesTId, areas_tid = AreasTId, objs_tid = ObjsTId}}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -116,18 +117,35 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({make_tree, Options}, _From, State) ->
-		NewId = do_make_tree(Options),
+      NewId = do_make_tree(State#state.trees_tid, Options),
 	  {reply, NewId, State};
 
-handle_call({add_obj, AreaSpec, Obj}, _From, State) ->	
-	{ObjList} = ets:lookup(areas, AreaSpec),
-	ets:insert(areas, {[Obj|ObjList]}),
-  {reply, {ok, AreaSpec}, State};
+handle_call({add_obj, TreeId, Position, BBSize}, _From, State) ->	
+    [{TreeId, TreeOpts}] = ets:lookup(trees, TreeId), % TODO: handle error
+    AreaSpec = make_area_code(TreeId, Position, BBSize, max_depth_opt(TreeOpts)),
+    ObjId = do_make_obj(State#state.objs_tid, AreaSpec),
+    do_area_add_obj(areas, AreaSpec, ObjId),
+    {reply, {ok, ObjId, AreaSpec}, State};
 
-handle_call({add_obj_lazy, TreeId, Obj, Position, BBSize}, From, State) ->	
-	AreaSpec = make_area_code(TreeId, Position, BBSize),
-	handle_call({add_obj, AreaSpec, Obj}, From, State).
+% TODO: ensure that the object was actually placed in this tree. 
+handle_call({remove_obj, _TreeId, ObjId}, _From, State) ->
+    [{ObjId, AreaSpec}] = ets:lookup(objs, ObjId),
+    [{AreaSpec, ObjList}] = ets:lookup(areas, AreaSpec),
+    ets:update_element(areas, AreaSpec, {2, lists:delete(ObjId, ObjList)}),
+    {reply, ok, State};
 
+
+handle_call({update_position, TreeId, ObjId, NewPos, NewBBSize}, _From, State) ->
+    [{TreeId, TreeOpts}] = ets:lookup(trees, TreeId), % TODO: handle error
+    NewAreaSpec = make_area_code(TreeId, NewPos, NewBBSize, max_depth_opt(TreeOpts)),
+    {_, OldAreaSpec} = ets:lookup(objs, ObjId),
+    % add to new area
+    do_area_add_obj(areas, NewAreaSpec, ObjId),
+    % update obj entry
+    ets:update_element(objs, ObjId, {2, NewAreaSpec}),
+    % remove from old area
+    do_area_remove_obj(areas, OldAreaSpec, ObjId),
+    {reply, {ok, NewAreaSpec}, State}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_cast/2
@@ -170,11 +188,11 @@ code_change(_OldVsn, State, _Extra) ->
 %% --------------------------------------------------------------------
 
 max_depth_opt(Options) ->
-			case opt(max_depth, Options) of
-					{ok, MD_Val} ->
-							MD_Val;
-					_ -> 10
-			end.
+    case opt(max_depth, Options) of
+        {ok, MD_Val} ->
+            MD_Val;
+        _ -> ?MAX_DEPTH_DEFAULT
+    end.
 
 opt(Op, [{Op, Value}|_]) ->
     {ok, Value};
@@ -185,19 +203,19 @@ opt(_, []) ->
 
 
 % compute the path to the area
-make_area_code(TreeId, Position, BBSize) -> 
+make_area_code(TreeId, Position, BBSize, MaxDepth) -> 
 	%% TODO: check that position and/or bbsize are not greater than 1.0
-	AreaSpec = make_area_code_step([], {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, Position, BBSize, 10),
+	AreaSpec = make_area_code_step([], {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, Position, BBSize, MaxDepth),
 	%% TODO: test if list not empty
   %% cut of the final value, it is an artefact of the termination criterion
-  [Final|CorrectSpec] = AreaSpec,
+  [_Final|CorrectSpec] = AreaSpec,
   [TreeId|lists:reverse(CorrectSpec)].
 
 
 make_area_code_step(AreaSpec, _MinPos, _MaxPos, _ObjPos, _BBSize, ResRest) 
-	when ResRest < 0 -> 
-		?debugHere,
-		AreaSpec;
+  when ResRest < 0 -> 
+    ?debugHere,
+    AreaSpec;
 
 %% if any dimension objpos < minpos -> fail
 make_area_code_step(AreaSpec, {MinPos1, _, _}, {MaxPos1, _, _}, {ObjPos1, _, _}, _, _) 
@@ -217,35 +235,51 @@ make_area_code_step(AreaSpec, _, {_, _, MaxPos3}, {_, _, ObjPos3}, {_, _, BBSize
 
 
 make_area_code_step(AreaSpec, {MinPos1, MinPos2, MinPos3}, {MaxPos1, MaxPos2, MaxPos3},
-					{ObjPos1, ObjPos2, ObjPos3}, {BBSize1, BBSize2, BBSize3}, ResRest) ->
-		{Bit1, NewMin1, NewMax1} = calc_border(MinPos1, MaxPos1, ObjPos1, BBSize1, 1),	
-		{Bit2, NewMin2, NewMax2} = calc_border(MinPos2, MaxPos2, ObjPos2, BBSize2, 2),	
-		{Bit3, NewMin3, NewMax3} = calc_border(MinPos3, MaxPos3, ObjPos3, BBSize3, 4),
-		SubIdx = Bit1 + Bit2 + Bit3, 
-%		?debugFmt("SubId: ~p~n", [SubIdx]),
-		make_area_code_step([SubIdx|AreaSpec], {NewMin1, NewMin2, NewMin3}, {NewMax1, NewMax2, NewMax3},
-						{ObjPos1, ObjPos2, ObjPos3}, {BBSize1, BBSize2, BBSize3}, ResRest-1).
+                    {ObjPos1, ObjPos2, ObjPos3}, {BBSize1, BBSize2, BBSize3}, ResRest) ->
+    {Bit1, NewMin1, NewMax1} = calc_border(MinPos1, MaxPos1, ObjPos1, BBSize1, 1),	
+    {Bit2, NewMin2, NewMax2} = calc_border(MinPos2, MaxPos2, ObjPos2, BBSize2, 2),	
+    {Bit3, NewMin3, NewMax3} = calc_border(MinPos3, MaxPos3, ObjPos3, BBSize3, 4),
+    SubIdx = Bit1 + Bit2 + Bit3, 
+    %		?debugFmt("SubId: ~p~n", [SubIdx]),
+    make_area_code_step([SubIdx|AreaSpec], {NewMin1, NewMin2, NewMin3}, {NewMax1, NewMax2, NewMax3},
+                        {ObjPos1, ObjPos2, ObjPos3}, {BBSize1, BBSize2, BBSize3}, ResRest-1).
 
 
 -spec calc_border(MinPos::float(), MaxPos::float(), ObjPos::float(), BBLen::float(), BitMult::pos_integer()) 
-		-> {pos_integer(), float(), float()} | error.
+        -> {pos_integer(), float(), float()} | error.
 calc_border(MinPos, MaxPos, ObjPos, BBLen, BitMult) ->
-	Center = ((MaxPos - MinPos) / 2) + MinPos,
-	?debugFmt("MinPos: ~p, MaxPos: ~p, Center: ~p, ObjPos: ~p, ObjPos+BBLen: ~p, BitMult: ~p~n", 
-						[MinPos, MaxPos, Center, ObjPos, (ObjPos+BBLen), BitMult]),
-	if
-		(Center > ObjPos), (Center > (ObjPos + BBLen)) -> 
-				{0, MinPos, Center};
-		true -> {BitMult, Center, MaxPos}
-	end.
+    Center = ((MaxPos - MinPos) / 2) + MinPos,
+    %	?debugFmt("MinPos: ~p, MaxPos: ~p, Center: ~p, ObjPos: ~p, ObjPos+BBLen: ~p, BitMult: ~p~n", 
+    %						[MinPos, MaxPos, Center, ObjPos, (ObjPos+BBLen), BitMult]),
+    if
+        (Center > ObjPos), (Center > (ObjPos + BBLen)) -> 
+            {0, MinPos, Center};
+        true -> {BitMult, Center, MaxPos}
+    end.
 
-%% TODO: get numbers from tree list
-make_tree_id() -> ets:foldl(fun id_max/2, 0, trees) + 1.
+make_tree_id(TreesTId) -> ets:foldl(fun id_max/2, 0, TreesTId) + 1.
+
+%% this is neither fast nor can it be distributed, but it will work for now.
+make_obj_id(ObjsTId) -> ets:foldl(fun id_max/2, 0, ObjsTId) + 1.
 
 id_max({Id, _}, Curr) ->
-		max(Id, Curr).
+    max(Id, Curr).
 
-do_make_tree(Options) ->
-	NewId = make_tree_id(),
-	ets:insert(trees, {NewId, Options}),
-	NewId.
+do_make_tree(TreesTId, Options) ->
+    NewId = make_tree_id(TreesTId),
+    ets:insert(trees, {NewId, Options}),
+    NewId.
+
+do_make_obj(ObjsTId, AreaSpec) ->
+    NewId = make_obj_id(ObjsTId),
+    ets:insert(objs, {NewId, AreaSpec}),
+    NewId.
+
+do_area_remove_obj(Areas, AreaSpec, ObjId) ->
+    [{AreaSpec, ObjList}] = ets:lookup(Areas, AreaSpec),
+    ets:update_element(areas, AreaSpec, {2, lists:delete(ObjId, ObjList)}).
+    
+do_area_add_obj(Areas, AreaSpec, ObjId) -> 
+    [{AreaSpec, ObjList}] = ets:lookup(areas, AreaSpec),
+    ets:insert(Areas, {AreaSpec, [ObjId|ObjList]}).
+
