@@ -22,7 +22,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -ifdef(TEST).
--export([make_area_code/3]).
+-export([make_area_code/3, make_area_code_step/6, make_tree_id/0, do_make_tree/1]).
 -endif.
 
 %% ====================================================================
@@ -116,14 +116,13 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({make_tree, Options}, _From, State) ->
-    NewId = make_tree_id(),
-	ets:insert(trees, {NewId, Options}),
-    {reply, NewId, State};
+		NewId = do_make_tree(Options),
+	  {reply, NewId, State};
 
 handle_call({add_obj, AreaSpec, Obj}, _From, State) ->	
 	{ObjList} = ets:lookup(areas, AreaSpec),
 	ets:insert(areas, {[Obj|ObjList]}),
-    {reply, {ok, AreaSpec}, State};
+  {reply, {ok, AreaSpec}, State};
 
 handle_call({add_obj_lazy, TreeId, Obj, Position, BBSize}, From, State) ->	
 	AreaSpec = make_area_code(TreeId, Position, BBSize),
@@ -190,29 +189,41 @@ make_area_code(TreeId, Position, BBSize) ->
 	%% TODO: check that position and/or bbsize are not greater than 1.0
 	AreaSpec = make_area_code_step([], {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, Position, BBSize, 10),
 	%% TODO: test if list not empty
-    [TreeId|lists:reverse(AreaSpec)].
+  %% cut of the final value, it is an artefact of the termination criterion
+  [Final|CorrectSpec] = AreaSpec,
+  [TreeId|lists:reverse(CorrectSpec)].
 
 
-make_area_code_step(_AreaSpec, _MinPos, _MaxPos, _ObjPos, _BBSize, ResRest) when ResRest < 0 -> [];
+make_area_code_step(AreaSpec, _MinPos, _MaxPos, _ObjPos, _BBSize, ResRest) 
+	when ResRest < 0 -> 
+		?debugHere,
+		AreaSpec;
 
 %% if any dimension objpos < minpos -> fail
-make_area_code_step(_, {MinPos1, _, _}, _, {ObjPos1, _, _}, _, _) when ObjPos1 < MinPos1 -> [];
-make_area_code_step(_, {_, MinPos2, _}, _, {_, ObjPos2, _}, _, _) when ObjPos2 < MinPos2 -> [];
-make_area_code_step(_, {_, _, MinPos3}, _, {_, _, ObjPos3}, _, _) when ObjPos3 < MinPos3 -> [];
+make_area_code_step(AreaSpec, {MinPos1, _, _}, {MaxPos1, _, _}, {ObjPos1, _, _}, _, _) 
+	when ObjPos1 < MinPos1 -> 
+		?debugFmt("MinPos1: ~p, MaxPos1: ~p, ObjPos1: ~p~n", [MinPos1, MaxPos1, ObjPos1]),
+		AreaSpec;
+make_area_code_step(AreaSpec, {_, MinPos2, _}, _, {_, ObjPos2, _}, _, _) when ObjPos2 < MinPos2 -> AreaSpec;
+make_area_code_step(AreaSpec, {_, _, MinPos3}, _, {_, _, ObjPos3}, _, _) when ObjPos3 < MinPos3 -> AreaSpec;
 
 %% if any dimension objpos+bbsize > maxpos -> fail
-make_area_code_step(_, _, {MaxPos1, _, _}, {ObjPos1, _, _}, {BBSize1, _, _}, _) when (ObjPos1 + BBSize1) > MaxPos1 -> [];
-make_area_code_step(_, _, {_, MaxPos2, _}, {_, ObjPos2, _}, {_, BBSize2, _}, _) when (ObjPos2 + BBSize2) > MaxPos2 -> [];
-make_area_code_step(_, _, {_, _, MaxPos3}, {_, _, ObjPos3}, {_, _, BBSize3}, _) when (ObjPos3 + BBSize3) > MaxPos3 -> [];
+make_area_code_step(AreaSpec, _, {MaxPos1, _, _}, {ObjPos1, _, _}, {BBSize1, _, _}, _) 
+	when (ObjPos1 + BBSize1) > MaxPos1 -> AreaSpec;
+make_area_code_step(AreaSpec, _, {_, MaxPos2, _}, {_, ObjPos2, _}, {_, BBSize2, _}, _) 
+	when (ObjPos2 + BBSize2) > MaxPos2 -> AreaSpec;
+make_area_code_step(AreaSpec, _, {_, _, MaxPos3}, {_, _, ObjPos3}, {_, _, BBSize3}, _) 
+	when (ObjPos3 + BBSize3) > MaxPos3 -> AreaSpec;
 
 
 make_area_code_step(AreaSpec, {MinPos1, MinPos2, MinPos3}, {MaxPos1, MaxPos2, MaxPos3},
 					{ObjPos1, ObjPos2, ObjPos3}, {BBSize1, BBSize2, BBSize3}, ResRest) ->
-	{Bit1, NewMin1, NewMax1} = calc_border(MinPos1, MaxPos1, ObjPos1, BBSize1, 1),	
-	{Bit2, NewMin2, NewMax2} = calc_border(MinPos2, MaxPos2, ObjPos2, BBSize2, 2),	
-	{Bit3, NewMin3, NewMax3} = calc_border(MinPos3, MaxPos3, ObjPos3, BBSize3, 4),
-	SubIdx = Bit1 + Bit2 + Bit3,
-	make_area_code_step([SubIdx|AreaSpec], {NewMin1, NewMin2, NewMin3}, {NewMax1, NewMax2, NewMax3},
+		{Bit1, NewMin1, NewMax1} = calc_border(MinPos1, MaxPos1, ObjPos1, BBSize1, 1),	
+		{Bit2, NewMin2, NewMax2} = calc_border(MinPos2, MaxPos2, ObjPos2, BBSize2, 2),	
+		{Bit3, NewMin3, NewMax3} = calc_border(MinPos3, MaxPos3, ObjPos3, BBSize3, 4),
+		SubIdx = Bit1 + Bit2 + Bit3, 
+%		?debugFmt("SubId: ~p~n", [SubIdx]),
+		make_area_code_step([SubIdx|AreaSpec], {NewMin1, NewMin2, NewMin3}, {NewMax1, NewMax2, NewMax3},
 						{ObjPos1, ObjPos2, ObjPos3}, {BBSize1, BBSize2, BBSize3}, ResRest-1).
 
 
@@ -220,10 +231,21 @@ make_area_code_step(AreaSpec, {MinPos1, MinPos2, MinPos3}, {MaxPos1, MaxPos2, Ma
 		-> {pos_integer(), float(), float()} | error.
 calc_border(MinPos, MaxPos, ObjPos, BBLen, BitMult) ->
 	Center = ((MaxPos - MinPos) / 2) + MinPos,
+	?debugFmt("MinPos: ~p, MaxPos: ~p, Center: ~p, ObjPos: ~p, ObjPos+BBLen: ~p, BitMult: ~p~n", 
+						[MinPos, MaxPos, Center, ObjPos, (ObjPos+BBLen), BitMult]),
 	if
-		(Center > ObjPos), (Center > (ObjPos + BBLen)) -> {BitMult, Center, MaxPos};
-		true -> {0, MinPos, Center}
+		(Center > ObjPos), (Center > (ObjPos + BBLen)) -> 
+				{0, MinPos, Center};
+		true -> {BitMult, Center, MaxPos}
 	end.
 
 %% TODO: get numbers from tree list
-make_tree_id() -> 1.
+make_tree_id() -> ets:foldl(fun id_max/2, 0, trees) + 1.
+
+id_max({Id, _}, Curr) ->
+		max(Id, Curr).
+
+do_make_tree(Options) ->
+	NewId = make_tree_id(),
+	ets:insert(trees, {NewId, Options}),
+	NewId.
