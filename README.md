@@ -5,4 +5,10 @@ Distributed OCTree in ERLang
 
 Variants:
 
-docterl_ets: using ETS tables. Does not do distribution by itself. Only one tree is supported.
+
+docterl_ets
+-----------
+
+using ETS tables as datastore. Distribution is done via gen_event. Only one tree at a time is supported.
+
+This variant does not offer any detection or handling of node failure or network partition.
