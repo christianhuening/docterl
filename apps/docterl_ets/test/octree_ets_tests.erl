@@ -49,13 +49,13 @@ make_new_treeid_test_() ->
         fun(_Foo) -> [
                       ?_test(
                       begin
-                          ets:new(trees, [set, named_table, {read_concurrency, true}]),
-                          ?assertEqual(1, octree_ets:make_tree_id()),
-                          octree_ets:do_make_tree([]),
-                          ?assertEqual(2, octree_ets:make_tree_id()),
-                          octree_ets:do_make_tree([]),
-                          ?assertEqual(3, octree_ets:make_tree_id()),
-                          ets:delete(trees)										
+                          TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
+                          ?assertEqual(1, octree_ets:make_tree_id(TreesTId)),
+                          octree_ets:do_make_tree(TreesTId, []),
+                          ?assertEqual(2, octree_ets:make_tree_id(TreesTId)),
+                          octree_ets:do_make_tree(TreesTId, []),
+                          ?assertEqual(3, octree_ets:make_tree_id(TreesTId)),
+                          ets:delete(TreesTId)										
                       end)
                      ] end }}.
 
@@ -68,13 +68,13 @@ make_new_objid_test_() ->
     fun(_Foo) -> [
                   ?_test(
                   begin
-                      ets:new(objs, [set, named_table]),
-                      ?assertEqual(1, octree_ets:make_obj_id()),
-                      octree_ets:do_make_obj([1]),
-                      ?assertEqual(2, octree_ets:make_obj_id()),
-                      octree_ets:do_make_obj([1]),
-                      ?assertEqual(3, octree_ets:make_obj_id()),
-                      ets:delete(objs)                                       
+                      ObjsTId = ets:new(objs, [set]),
+                      ?assertEqual(1, octree_ets:make_obj_id(ObjsTId)),
+                      octree_ets:do_make_obj(ObjsTId, [1]),
+                      ?assertEqual(2, octree_ets:make_obj_id(ObjsTId)),
+                      octree_ets:do_make_obj(ObjsTId, [1]),
+                      ?assertEqual(3, octree_ets:make_obj_id(ObjsTId)),
+                      ets:delete(ObjsTId)                                       
                   end)
                  ] end }}.
 
@@ -88,7 +88,6 @@ create_and_remove_obj_test_() ->
                      begin
                          StartRet = octree_ets:start_link(),
                          ?debugFmt("StartRet: ~p~n", [StartRet]),
-                         sleep(1000),
                          TreeId = octree_ets:make_tree([]),
                          {ok, ObjId, Spec1} = octree_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
                          ?debugFmt("Spec1: ~p~n", [Spec1]),
@@ -99,6 +98,35 @@ create_and_remove_obj_test_() ->
                          octree_ets:remove_obj(TreeId, ObjId)
                      end)
                     ] end }}.
+
+run_a_thousand_updates_test_() ->
+		{"run update multiple times and measure runtim",
+     { setup,
+       fun fixStart/0,
+       fun fixStop/1,
+       fun(_Foo) -> [
+                     ?_test(
+                     begin
+                         StartRet = octree_ets:start_link(),
+                         ?debugFmt("StartRet: ~p~n", [StartRet]),
+                         TreeId = octree_ets:make_tree([]),
+                         {ok, ObjId, Spec1} = octree_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
+												 do_update(TreeId, ObjId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}, now(), 1000),
+                         octree_ets:remove_obj(TreeId, ObjId)
+                     end)
+                    ] end }}.
+
+do_update(_, _, _, _, {MegaSecs, Secs, MicroSecs}, 0) ->
+		{NowMegaSecs, NowSecs, NowMicroSecs} = now(),
+		?debugFmt("1000 updates took ~p~n", [{NowMegaSecs - MegaSecs, NowSecs - Secs, NowMicroSecs - MicroSecs}]), 
+		ok;
+		
+do_update(TreeId, ObjId, NewPos, NewSize, StartTime, Remainder) ->
+		octree_ets:update_position(TreeId, ObjId, vec_inc(NewPos, 0.0001), NewSize),
+		do_update(TreeId, ObjId, NewPos, NewSize, StartTime, Remainder-1).
+
+vec_inc({Vec1, Vec2, Vec3}, Inc) ->
+		{Vec1+Inc,Vec2+Inc,Vec3+Inc}.
 
 fixStart() ->
 %% 	application:start(sasl),

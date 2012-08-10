@@ -20,6 +20,7 @@
 -define(MAX_DEPTH_DEFAULT, 10).
 
 -type vec_3d() :: {float(), float(), float()}.
+-type areas_spec() :: list(integer()).
 
 -record(state, {trees_tid, areas_tid, objs_tid}).
 
@@ -63,7 +64,7 @@ start_link() -> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 -spec make_tree(Options::list()) -> {ok, pos_integer()} | {error | term()}.
-make_tree(Options) -> gen_server:call({local, ?MODULE}, {make_tree, Options}).
+make_tree(Options) -> gen_server:call(?MODULE, {make_tree, Options}).
 
 %% --------------------------------------------------------------------
 %% Function: add_obj/3
@@ -76,17 +77,17 @@ make_tree(Options) -> gen_server:call({local, ?MODULE}, {make_tree, Options}).
 -spec add_obj(TreeId::pos_integer(), Position::vec_3d(), BBSize::vec_3d()) -> 
           {ok, ObjId::pos_integer(), AreaSpec::list()} | {error, term()}.
 add_obj(TreeId, Position, BBSize) -> 
-    gen_server:call({local, ?MODULE}, {add_obj, TreeId, Position, BBSize}).
+    gen_server:call(?MODULE, {add_obj, TreeId, Position, BBSize}).
 
 -spec remove_obj(TreeId::pos_integer(), ObjId::pos_integer()) -> 
           ok | {error, unkown_tree} | {error, invalid_obj} | {error, Reason::term()}.
 remove_obj(TreeId, ObjId) ->
-    gen_server:call({local, ?MODULE}, {remove_obj, TreeId, ObjId}).
+    gen_server:call(?MODULE, {remove_obj, TreeId, ObjId}).
                  
 -spec update_position(TreeId::pos_integer(), ObjId::pos_integer(), 
 					  NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, AreaSpec::list()} | {error, term()}.
 update_position(TreeId, ObjId, NewPos, NewBBSize) -> 
-    gen_server:call({local, ?MODULE}, {update_position, TreeId, ObjId, NewPos, NewBBSize}).
+    gen_server:call(?MODULE, {update_position, TreeId, ObjId, NewPos, NewBBSize}).
 
 %% ====================================================================
 %% Server functions
@@ -117,35 +118,49 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({make_tree, Options}, _From, State) ->
-      NewId = do_make_tree(State#state.trees_tid, Options),
+		NewId = do_make_tree(State#state.trees_tid, Options),
 	  {reply, NewId, State};
 
 handle_call({add_obj, TreeId, Position, BBSize}, _From, State) ->	
-    [{TreeId, TreeOpts}] = ets:lookup(trees, TreeId), % TODO: handle error
+    [{TreeId, TreeOpts}] = ets:lookup(State#state.trees_tid, TreeId), % TODO: handle error
     AreaSpec = make_area_code(TreeId, Position, BBSize, max_depth_opt(TreeOpts)),
     ObjId = do_make_obj(State#state.objs_tid, AreaSpec),
-    do_area_add_obj(areas, AreaSpec, ObjId),
+    do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
     {reply, {ok, ObjId, AreaSpec}, State};
 
 % TODO: ensure that the object was actually placed in this tree. 
 handle_call({remove_obj, _TreeId, ObjId}, _From, State) ->
-    [{ObjId, AreaSpec}] = ets:lookup(objs, ObjId),
-    [{AreaSpec, ObjList}] = ets:lookup(areas, AreaSpec),
-    ets:update_element(areas, AreaSpec, {2, lists:delete(ObjId, ObjList)}),
+    [{ObjId, AreaSpec}] = ets:lookup(State#state.objs_tid, ObjId),
+    [{AreaSpec, ObjList}] = ets:lookup(State#state.areas_tid, AreaSpec),
+		do_area_remove_obj(State#state.areas_tid, AreaSpec, ObjId),
+    ets:update_element(State#state.areas_tid, AreaSpec, {2, lists:delete(ObjId, ObjList)}),
     {reply, ok, State};
 
-
 handle_call({update_position, TreeId, ObjId, NewPos, NewBBSize}, _From, State) ->
-    [{TreeId, TreeOpts}] = ets:lookup(trees, TreeId), % TODO: handle error
+		case (catch do_update_position(State, TreeId, ObjId, NewPos, NewBBSize)) of
+				{ok, NewAreaSpec} -> {reply, {ok, NewAreaSpec}, State};
+				{error, Reason} -> {reply, {error, Reason}, State};
+				Unknown -> {stop, {error, unknown_cause, Unknown}}
+		end.
+
+do_update_position(State, TreeId, ObjId, NewPos, NewBBSize) ->
+		case ets:lookup(State#state.trees_tid, TreeId) of
+				[{TreeId, TreeOpts}] -> ok;
+				[] -> throw(invalid_key_id), TreeOpts = []
+				end,
     NewAreaSpec = make_area_code(TreeId, NewPos, NewBBSize, max_depth_opt(TreeOpts)),
-    {_, OldAreaSpec} = ets:lookup(objs, ObjId),
-    % add to new area
-    do_area_add_obj(areas, NewAreaSpec, ObjId),
-    % update obj entry
-    ets:update_element(objs, ObjId, {2, NewAreaSpec}),
-    % remove from old area
-    do_area_remove_obj(areas, OldAreaSpec, ObjId),
-    {reply, {ok, NewAreaSpec}, State}.
+    case ets:lookup(State#state.objs_tid, ObjId) of
+        [{_, OldAreaSpec}] -> 
+							% add to new area
+							do_area_add_obj(State#state.areas_tid, NewAreaSpec, ObjId),
+							% update obj entry
+							ets:update_element(State#state.objs_tid, ObjId, {2, NewAreaSpec}),
+							% remove from old area
+							do_area_remove_obj(State#state.areas_tid, OldAreaSpec, ObjId),
+              {ok, NewAreaSpec};
+        [] -> {error, invalid_obj_id}
+        end.
+
 
 %% --------------------------------------------------------------------
 %% Function: handle_cast/2
@@ -220,7 +235,7 @@ make_area_code_step(AreaSpec, _MinPos, _MaxPos, _ObjPos, _BBSize, ResRest)
 %% if any dimension objpos < minpos -> fail
 make_area_code_step(AreaSpec, {MinPos1, _, _}, {MaxPos1, _, _}, {ObjPos1, _, _}, _, _) 
 	when ObjPos1 < MinPos1 -> 
-		?debugFmt("MinPos1: ~p, MaxPos1: ~p, ObjPos1: ~p~n", [MinPos1, MaxPos1, ObjPos1]),
+%		?debugFmt("MinPos1: ~p, MaxPos1: ~p, ObjPos1: ~p~n", [MinPos1, MaxPos1, ObjPos1]),
 		AreaSpec;
 make_area_code_step(AreaSpec, {_, MinPos2, _}, _, {_, ObjPos2, _}, _, _) when ObjPos2 < MinPos2 -> AreaSpec;
 make_area_code_step(AreaSpec, {_, _, MinPos3}, _, {_, _, ObjPos3}, _, _) when ObjPos3 < MinPos3 -> AreaSpec;
@@ -267,19 +282,30 @@ id_max({Id, _}, Curr) ->
 
 do_make_tree(TreesTId, Options) ->
     NewId = make_tree_id(TreesTId),
-    ets:insert(trees, {NewId, Options}),
+    ets:insert(TreesTId, {NewId, Options}),
     NewId.
 
 do_make_obj(ObjsTId, AreaSpec) ->
     NewId = make_obj_id(ObjsTId),
-    ets:insert(objs, {NewId, AreaSpec}),
+    ets:insert(ObjsTId, {NewId, AreaSpec}),
     NewId.
 
-do_area_remove_obj(Areas, AreaSpec, ObjId) ->
-    [{AreaSpec, ObjList}] = ets:lookup(Areas, AreaSpec),
-    ets:update_element(areas, AreaSpec, {2, lists:delete(ObjId, ObjList)}).
+%%
+%% remove single object entry from the list of objects in area
+%% 
+-spec do_area_remove_obj(AreasTId::integer(), AreasSpec::areas_spec(), ObjId::pos_integer()) ->
+					true | false.
+do_area_remove_obj(AreasTId, AreaSpec, ObjId) ->
+    [{AreaSpec, ObjList}] = ets:lookup(AreasTId, AreaSpec),
+    ets:update_element(AreasTId, AreaSpec, {2, lists:delete(ObjId, ObjList)}).
     
-do_area_add_obj(Areas, AreaSpec, ObjId) -> 
-    [{AreaSpec, ObjList}] = ets:lookup(areas, AreaSpec),
-    ets:insert(Areas, {AreaSpec, [ObjId|ObjList]}).
+do_area_add_obj(AreasTId, AreaSpec, ObjId) ->
+		case ets:lookup(AreasTId, AreaSpec) of
+				[] -> ToWrite = [ObjId];
+				[{AreaSpec, ObjList}] -> ToWrite = [ObjId|ObjList];
+				Ret -> ?debugFmt("multiple Entries: ~p~n", [Ret]), 
+							 ToWrite = [],
+							 throw(multiple_area_entries)
+		end,
+    ets:insert(AreasTId, {AreaSpec, ToWrite}).
 
