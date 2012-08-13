@@ -1,9 +1,11 @@
 %%% -------------------------------------------------------------------
 %%% Author  : sage
-%%% Description :
+%%% Description : maintain actual octree data structure (or ets tables in 
+%%%               this case.) This module will not publish the changes to other 
+%%%               nodes!
 %%%
 %%%  Important note: The 'objs' table does not hold any information 
-%%%  about the objects maneged by this octree, beyond the position.
+%%%  about the objects managed by this octree, beyond the position.
 %%%  If there is additional data to be maintained, this needs to be done
 %%%  by the application using this code in a separate table/database
 %%%
