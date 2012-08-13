@@ -133,7 +133,7 @@ handle_call({add_obj, TreeId, Position, BBSize}, _From, State) ->
 % TODO: ensure that the object was actually placed in this tree. 
 handle_call({remove_obj, _TreeId, ObjId}, _From, State) ->
     [{ObjId, AreaSpec}] = ets:lookup(State#state.objs_tid, ObjId),
-    [{AreaSpec, ObjList}] = ets:lookup(State#state.areas_tid, AreaSpec),
+    [{AreaSpec, ObjList, Subscribers}] = ets:lookup(State#state.areas_tid, AreaSpec),
 		do_area_remove_obj(State#state.areas_tid, AreaSpec, ObjId),
     ets:update_element(State#state.areas_tid, AreaSpec, {2, lists:delete(ObjId, ObjList)}),
     {reply, ok, State};
@@ -143,7 +143,15 @@ handle_call({update_position, TreeId, ObjId, NewPos, NewBBSize}, _From, State) -
 				{ok, NewAreaSpec} -> {reply, {ok, NewAreaSpec}, State};
 				{error, Reason} -> {reply, {error, Reason}, State};
 				Unknown -> {stop, {error, unknown_cause, Unknown}}
+		end;
+
+handle_call({get_subscribers, AreaSpec}, _From, State) ->
+		case (catch ets:lookup(State#state.areas_tid, AreaSpec)) of
+				[{AreaSpec, ObjList, Subscribers}] -> {reply, Subscribers, State};
+				[] -> {reply, [], State};
+				Unknown ->  {stop, {error, unknown_cause, Unknown}}
 		end.
+
 
 do_update_position(State, TreeId, ObjId, NewPos, NewBBSize) ->
 		case ets:lookup(State#state.trees_tid, TreeId) of
@@ -295,16 +303,16 @@ do_make_obj(ObjsTId, AreaSpec) ->
 -spec do_area_remove_obj(AreasTId::integer(), AreasSpec::areas_spec(), ObjId::pos_integer()) ->
 					true | false.
 do_area_remove_obj(AreasTId, AreaSpec, ObjId) ->
-    [{AreaSpec, ObjList}] = ets:lookup(AreasTId, AreaSpec),
+    [{AreaSpec, ObjList, Subscribers}] = ets:lookup(AreasTId, AreaSpec),
     ets:update_element(AreasTId, AreaSpec, {2, lists:delete(ObjId, ObjList)}).
     
 do_area_add_obj(AreasTId, AreaSpec, ObjId) ->
 		case ets:lookup(AreasTId, AreaSpec) of
-				[] -> ToWrite = [ObjId];
-				[{AreaSpec, ObjList}] -> ToWrite = [ObjId|ObjList];
+				[] -> ObjsToWrite = [ObjId], SubsToWrite = [];
+				[{AreaSpec, ObjList, Subscribers}] -> ObjsToWrite = [ObjId|ObjList], SubsToWrite = Subscribers;
 				Ret -> ?debugFmt("multiple Entries: ~p~n", [Ret]), 
-							 ToWrite = [],
+							 ObjsToWrite = SubsToWrite = [],
 							 throw(multiple_area_entries)
 		end,
-    ets:insert(AreasTId, {AreaSpec, ToWrite}).
+    ets:insert(AreasTId, {AreaSpec, ObjsToWrite, SubsToWrite}).
 

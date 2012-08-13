@@ -2,18 +2,19 @@
 %%% Author  : sage
 %%% Description :
 %%%
-%%% Created : 10.08.2012
+%%% Created : 13.08.2012
 %%% -------------------------------------------------------------------
--module(doe_remote_handler).
+-module(doe_test_handler).
 
 -behaviour(gen_event).
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
+-include_lib("eunit/include/eunit.hrl").
 
 %% --------------------------------------------------------------------
 %% External exports
--export([add_handler/1]).
+-export([]).
 
 %% gen_event callbacks
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2, code_change/3]).
@@ -23,12 +24,6 @@
 %% ====================================================================
 %% External functions
 %% ====================================================================
-add_handler(NodeList) ->
-    lists:map(fun(Node) -> 
-                      doe_tree_event:add_handler({Node, ?MODULE}, []) 
-              end,
-              NodeList).
-
 
 %% ====================================================================
 %% Server functions
