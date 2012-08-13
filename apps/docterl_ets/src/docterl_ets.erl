@@ -21,7 +21,7 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([make_tree/1, add_obj/3, remove_obj/2, 
+-export([new_tree/1, add_obj/3, remove_obj/2, 
          update_position/4]).
 
 
@@ -41,29 +41,64 @@
 %% Returns: {ok, TreeId}          |
 %%          {error, Reason}
 %% --------------------------------------------------------------------
--spec make_tree(Options::list()) -> {ok, pos_integer()} | {error | term()}.
-make_tree(Options) -> gen_server:call(doe_ets, {make_tree, Options}).
+-spec new_tree(Options::list()) -> {ok, pos_integer()} | {error | term()}.
+new_tree(Options) -> 
+    case (catch doe_ets:new_tree(Options)) of
+        {ok, TreeId} -> doe_tree_event:new_tree(TreeId), 
+                        {ok, TreeId};
+        {error, Reason} -> {error, Reason};
+        Other -> {error, {unknown_result, Other}} 
+    end.
 
 %% --------------------------------------------------------------------
 %% Function: add_obj/3
 %% Description: add an object to a tree. the cost of computing the proper 
 %%              position in the tree are borne by this thread.
-%% Returns: {ok, AreaSpec}
+%% Returns: {ok, ObjId, AreaSpec}
 %%          {error, invalid_tree}
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 -spec add_obj(TreeId::pos_integer(), Position::vec_3d(), BBSize::vec_3d()) -> 
           {ok, ObjId::pos_integer(), AreaSpec::list()} | {error, term()}.
 add_obj(TreeId, Position, BBSize) -> 
-    gen_server:call(doe_ets, {add_obj, TreeId, Position, BBSize}).
+    case (catch doe_ets:add_obj(TreeId, Position, BBSize)) of
+        {ok, ObjId, AreaSpec} -> doe_tree_event:add_obj(ObjId, AreaSpec),
+                                 {ok, ObjId, AreaSpec};
+        {error, Reason} -> {error, Reason};
+        Other -> {error, {unknown_result, Other}} 
+    end.
 
 -spec remove_obj(TreeId::pos_integer(), ObjId::pos_integer()) -> 
           ok | {error, unkown_tree} | {error, invalid_obj} | {error, Reason::term()}.
 remove_obj(TreeId, ObjId) ->
-    gen_server:call(doe_ets, {remove_obj, TreeId, ObjId}).
+    case (catch doe_ets:remove_obj(TreeId, ObjId)) of
+        ok -> doe_tree_event:remove_obj(TreeId, ObjId),
+              ok;
+        {error, Reason} -> {error, Reason};
+        Other -> {error, {unknown_result, Other}} 
+    end.
                  
+
+%%
+%% there are a number of optimisations here:
+%%   - if the content lists did not change, to not send the area updates
+%%   - movement event and area change could be combined into one event, at
+%%     least for transmitting over the network.
+%%
+%% Both optimisations are not used right now.
+%%
 -spec update_position(TreeId::pos_integer(), ObjId::pos_integer(), 
-					  NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, AreaSpec::list()} | {error, term()}.
+                      NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, AreaSpec::list()} | {error, term()}.
 update_position(TreeId, ObjId, NewPos, NewBBSize) -> 
-    gen_server:call(doe_ets, {update_position, TreeId, ObjId, NewPos, NewBBSize}).
+    case (catch doe_ets:update_position(TreeId, ObjId, NewPos, NewBBSize)) of
+        {ok, {AreaSpec}} ->   % the area was not changed. 
+            doe_tree_event:update_position(ObjId, AreaSpec),
+            {ok, AreaSpec}; 
+        {ok, OldAreaSpec, NewAreaSpec} -> 
+            doe_tree_event:update_area(ObjId, OldAreaSpec, NewAreaSpec),
+            doe_tree_event:update_position(ObjId, NewAreaSpec),
+            {ok, NewAreaSpec};
+        {error, Reason} -> {error, Reason};
+        Other -> {error, {unknown_result, Other}} 
+    end.
 

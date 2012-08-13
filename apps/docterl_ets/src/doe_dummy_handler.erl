@@ -46,7 +46,13 @@ init([]) ->
 handle_event({new_obj, _ObjId, _AreaSpec}, State) ->
     {ok, State};
 
-handle_event({update_area, _ObjId, _AreaSpec}, State) ->
+handle_event({enter_area, _ObjId, _AreaSpec}, State) ->
+    {ok, State};
+
+handle_event({leave_area, _ObjId, _AreaSpec}, State) ->
+    {ok, State};
+
+handle_event({update_position, _ObjId, _AreaSpec}, State) ->
     {ok, State}.
 
 %% --------------------------------------------------------------------

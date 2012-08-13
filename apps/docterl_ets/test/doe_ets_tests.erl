@@ -91,7 +91,7 @@ create_and_remove_obj_test_() ->
                      begin
                          StartRet = doe_ets:start_link(),
                          ?debugFmt("StartRet: ~p~n", [StartRet]),
-                         TreeId = doe_ets:make_tree([]),
+                         TreeId = doe_ets:new_tree([]),
                          {ok, ObjId, Spec1} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
                          ?debugFmt("Spec1: ~p~n", [Spec1]),
                          Spec2 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.1, 0.1}),
@@ -113,9 +113,9 @@ run_a_thousand_updates_test_() ->
                      begin
                          StartRet = doe_ets:start_link(),
                          ?debugFmt("StartRet: ~p~n", [StartRet]),
-                         TreeId = doe_ets:make_tree([]),
+                         TreeId = doe_ets:new_tree([]),
                          {ok, ObjId, _} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
-                         test_avg(octree_ets_tests, 
+                         test_avg(doe_ets_tests, 
                                   do_update, 
                                   [TreeId, ObjId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}], 
                                   10000),

@@ -20,8 +20,8 @@
 %% --------------------------------------------------------------------
 %% External exports
 -export([start_link/0, add_handler/2, delete_handler/2, 
-         subscribe/1, unsubscribe/1, 
-         new_obj/2, update_area/3]).
+         new_tree/1, subscribe/1, unsubscribe/1, 
+         add_obj/2, update_area/3, update_position/2]).
 
 %% ====================================================================
 %% External functions
@@ -41,6 +41,7 @@ add_handler(Handler, Args) ->
 delete_handler(Handler, Args) -> 
     gen_event:delete_handler(?SERVER, Handler, Args).
 
+
 subscribe(AreaSpec) ->
     gen_server:abcast(erlang:nodes(), doe_ets, 
                       {subscribe, AreaSpec, erlang:node()}).
@@ -49,11 +50,15 @@ unsubscribe(AreaSpec) ->
     gen_server:abcast(erlang:nodes(), doe_ets, 
                       {unsubscribe, AreaSpec, erlang:node()}).
 
+new_tree(Options) -> 
+    gen_server:abcast(erlang:nodes(), doe_ets, {new_tree, Options}).
+
+
 %
 % this only sets the initial position. Changes in position
 % will be handled by the area update.
 %
-new_obj(ObjId, AreaSpec) ->
+add_obj(ObjId, AreaSpec) ->
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
     lists:map(fun(Sub) -> 
                       gen_event:notify({Sub, ?SERVER}, 
@@ -61,15 +66,26 @@ new_obj(ObjId, AreaSpec) ->
               end, 
               Subscribers).
 
-%
-% the old content is resent, so that the recipient need not query 
-% an addition data source to get it.
-%
-update_area(AreaSpec, OldContent, NewContent) -> 
+update_area(ObjId, OldAreaSpec, NewAreaSpec) -> 
+    OldSubscribers = gen_server:call(doe_ets, {get_subscribers, OldAreaSpec}),
+    NewSubscribers = gen_server:call(doe_ets, {get_subscribers, NewAreaSpec}),
+    lists:map(fun(Sub) -> 
+                      gen_event:notify({Sub, ?SERVER}, 
+                                       {leave_area, ObjId, OldAreaSpec}) 
+              end, 
+              OldSubscribers),
+        lists:map(fun(Sub) -> 
+                      gen_event:notify({Sub, ?SERVER}, 
+                                       {enter_area, ObjId, NewAreaSpec}) 
+              end, 
+              NewSubscribers).
+
+
+update_position(ObjId, AreaSpec) -> 
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
     lists:map(fun(Sub) -> 
                       gen_event:notify({Sub, ?SERVER}, 
-                                       {update_area, AreaSpec, OldContent, NewContent}) 
+                                       {update_position, ObjId, AreaSpec}) 
               end, 
               Subscribers).
 
