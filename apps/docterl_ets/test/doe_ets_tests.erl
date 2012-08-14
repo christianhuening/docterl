@@ -91,7 +91,7 @@ create_and_remove_obj_test_() ->
                      ?_test(
                      begin
                          {ok, TreeId} = doe_ets:new_tree([]),
-                         {ok, ObjId, _Spec1} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
+                         {ok, ObjId, _Spec1} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
                          % ?debugFmt("Spec1: ~p~n", [Spec1]),
                          _Spec2 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.1, 0.1}),
                          % ?debugFmt("Spec2: ~p~n", [Spec2]),
@@ -111,7 +111,7 @@ run_a_thousand_updates_test_() ->
                      ?_test(
                      begin
                          {ok, TreeId} = doe_ets:new_tree([]),
-                         {ok, ObjId, _} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
+                         {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
                          test_avg(doe_ets_tests, 
                                   do_update, 
                                   [TreeId, ObjId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}], 
@@ -129,7 +129,7 @@ run_a_thousand_different_updates_test_() ->
                      ?_test(
                      begin
                          {ok, TreeId} = doe_ets:new_tree([]),
-                         {ok, ObjId, _} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}),
+                         {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}),
                          test_avg(doe_ets_tests, 
                                   do_update, 
                                   [TreeId, ObjId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}], 
@@ -139,7 +139,7 @@ run_a_thousand_different_updates_test_() ->
                     ] end }}.
 
 do_update(Count, TreeId, ObjId, NewPos, NewSize) ->
-		doe_ets:update_position(TreeId, ObjId, vec_inc(NewPos, 0.00002 * Count), NewSize).
+		doe_ets:update_position(TreeId, ObjId, vec_inc(NewPos, 2.0e-5 * Count), NewSize).
 
 vec_inc({Vec1, Vec2, Vec3}, Inc) ->
 		{Vec1+Inc,Vec2+Inc,Vec3+Inc}.

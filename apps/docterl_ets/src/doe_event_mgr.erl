@@ -29,7 +29,7 @@
 %% ====================================================================
 start_link() -> 
     Ret = gen_event:start_link({local, ?SERVER}),
-    % ?debugFmt("gen_event:start_link returned: ~p~n", [Ret]),
+    ?debugFmt("gen_event:start_link returned: ~p~n", [Ret]),
 		Ret.
 
 stop() -> gen_event:stop(?SERVER).
@@ -58,7 +58,7 @@ unsubscribe(AreaSpec) ->
 
 new_tree(TreeId, Options) -> 
     % notify the local event handler first
-    gen_event:notify(?SERVER, {new_tree, TreeId, Options}),
+    gen_event:notify(?SERVER, {local_new_tree, TreeId, Options}),
     % then the others, as this may take some time.
     gen_server:abcast(erlang:nodes(), doe_ets, {new_tree, TreeId, Options}).
 
@@ -69,7 +69,7 @@ new_tree(TreeId, Options) ->
 add_obj(ObjId, AreaSpec) ->
     ?debugFmt("notifying of add_obj for ~p in ~p~n", [ObjId, AreaSpec]),
     % notify the local event handler first
-    gen_event:notify(?SERVER, {new_obj, ObjId, AreaSpec}),
+    gen_event:notify(?SERVER, {local_new_obj, ObjId, AreaSpec}),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
     lists:map(fun(Sub) -> 
                       gen_event:notify({Sub, ?SERVER}, 
@@ -79,8 +79,8 @@ add_obj(ObjId, AreaSpec) ->
 
 update_area(ObjId, OldAreaSpec, NewAreaSpec) -> 
     % notify the local event handler first
-    gen_event:notify(?SERVER, {leave_area, ObjId, OldAreaSpec}),
-    gen_event:notify(?SERVER, {enter_area, ObjId, NewAreaSpec}),
+    gen_event:notify(?SERVER, {local_leave_area, ObjId, OldAreaSpec}),
+    gen_event:notify(?SERVER, {local_enter_area, ObjId, NewAreaSpec}),
     OldSubscribers = gen_server:call(doe_ets, {get_subscribers, OldAreaSpec}),
     NewSubscribers = gen_server:call(doe_ets, {get_subscribers, NewAreaSpec}),
     lists:map(fun(Sub) -> 
@@ -98,7 +98,7 @@ update_area(ObjId, OldAreaSpec, NewAreaSpec) ->
 update_position(ObjId, AreaSpec, NewPos, NewBBSize) -> 
     ?debugHere,
     % notify the local event handler first
-    gen_event:notify(?SERVER, {update_position, ObjId, AreaSpec, NewPos, NewBBSize}),
+    gen_event:notify(?SERVER, {local_update_position, ObjId, AreaSpec, NewPos, NewBBSize}),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
     lists:map(fun(Sub) -> 
                       gen_event:notify({Sub, ?SERVER}, 

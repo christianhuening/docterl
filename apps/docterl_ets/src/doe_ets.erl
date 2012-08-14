@@ -29,8 +29,8 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/0, stop/0, new_tree/1, add_obj/3, remove_obj/2, 
-         update_position/4]).
+-export([start_link/0, stop/0, new_tree/1, new_tree/2, add_obj/2, new_obj/3, remove_obj/2,
+         update_position/4, leave_area/2, enter_area/2, get_members/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -70,18 +70,41 @@ stop() -> gen_server:cast({local, ?MODULE}, {stop}).
 -spec new_tree(Options::list()) -> {ok, pos_integer()} | {error | term()}.
 new_tree(Options) -> gen_server:call(?MODULE, {new_tree, Options}).
 
+%% should only be called internally by doe_event_mgr
+-spec new_tree(TreeId::pos_integer(), Options::list()) -> {ok, pos_integer()} | {error | term()}.
+new_tree(TreeId, Options) -> gen_server:call(?MODULE, {remote_new_tree, TreeId, Options}).
+
+%% should only be called internally by doe_event_mgr
+-spec leave_area(ObjId::pos_integer(), AreaSpec::list()) ->
+          ok | {error, term()}.
+leave_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_leave_area, ObjId, AreaSpec}).
+
+%% should only be called internally by doe_event_mgr
+-spec enter_area(ObjId::pos_integer(), AreaSpec::list()) ->
+          ok | {error, term()}.
+enter_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_enter_area, ObjId, AreaSpec}).
+
+
+%% should only be called internally by doe_event_mgr
+-spec add_obj(ObjId::pos_integer(), AreaSpec::list()) -> 
+          ok | {error, term()}.
+add_obj(ObjId, AreaSpec) -> 
+    gen_server:call(?MODULE, {remote_add_obj, ObjId, AreaSpec}).
+
+
 %% --------------------------------------------------------------------
-%% Function: add_obj/3
-%% Description: add an object to a tree. the cost of computing the proper 
-%%              position in the tree are borne by this thread.
+%% Function: new_obj/3
+%% Description: add an object to a tree. 
 %% Returns: {ok, ObjId, AreaSpec}
 %%          {error, invalid_tree}
 %%          {error, Reason}
 %% --------------------------------------------------------------------
--spec add_obj(TreeId::pos_integer(), Position::vec_3d(), BBSize::vec_3d()) -> 
-          {ok, ObjId::pos_integer(), AreaSpec::list()} | {error, term()}.
-add_obj(TreeId, Position, BBSize) -> 
-    gen_server:call(?MODULE, {add_obj, TreeId, Position, BBSize}).
+-spec new_obj(TreeId :: pos_integer(), Position :: vec_3d(),
+              BBSize :: vec_3d()) -> 
+                 {ok, ObjId :: pos_integer(), AreaSpec :: list()}
+                  | {error, term()}.
+new_obj(TreeId, Position, BBSize) ->
+    gen_server:call(?MODULE, {new_obj, TreeId, Position, BBSize}).
 
 -spec remove_obj(TreeId::pos_integer(), ObjId::pos_integer()) -> 
           ok | {error, unkown_tree} | {error, invalid_obj} | {error, Reason::term()}.
@@ -93,6 +116,10 @@ remove_obj(TreeId, ObjId) ->
           {ok, AreaSpec::list()} | {ok, OldAreaSpec::list(), NewAreaSpec::list()} | {error, term()}.
 update_position(TreeId, ObjId, NewPos, NewBBSize) -> 
     gen_server:call(?MODULE, {update_position, TreeId, ObjId, NewPos, NewBBSize}).
+
+-spec get_members(AreaSpec::list()) -> {ok, Members::list()} | {error, term()}.
+get_members(AreaSpec) -> gen_server:call(?MODULE, {get_members, AreaSpec}).
+
 
 %% ====================================================================
 %% Server functions
@@ -123,21 +150,27 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({new_tree, Options}, _From, State) ->
-		NewId = do_make_tree(State#state.trees_tid, Options),
+      NewId = do_make_tree(State#state.trees_tid, Options),
 	  {reply, {ok, NewId}, State};
 
-handle_call({add_obj, TreeId, Position, BBSize}, _From, State) ->	
+handle_call({new_obj, TreeId, Position, BBSize}, _From, State) ->	
     [{TreeId, TreeOpts}] = ets:lookup(State#state.trees_tid, TreeId), % TODO: handle error
     AreaSpec = make_area_code(TreeId, Position, BBSize, max_depth_opt(TreeOpts)),
     ObjId = do_make_obj(State#state.objs_tid, AreaSpec),
     do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
     {reply, {ok, ObjId, AreaSpec}, State};
 
+% TODO: assert that tree id has not been used before
+handle_call({remote_new_Obj, ObjId, AreaSpec}, _From, State) ->
+      ets:insert(State#state.objs_tid, {ObjId, AreaSpec}),
+      do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
+      {reply, ok, State};
+
 % TODO: ensure that the object was actually placed in this tree. 
 handle_call({remove_obj, _TreeId, ObjId}, _From, State) ->
     [{ObjId, AreaSpec}] = ets:lookup(State#state.objs_tid, ObjId),
     [{AreaSpec, ObjList, _Subscribers}] = ets:lookup(State#state.areas_tid, AreaSpec),
-		do_area_remove_obj(State#state.areas_tid, AreaSpec, ObjId),
+    do_area_remove_obj(State#state.areas_tid, AreaSpec, ObjId),
     ets:update_element(State#state.areas_tid, AreaSpec, {2, lists:delete(ObjId, ObjList)}),
     {reply, ok, State};
 
@@ -162,7 +195,10 @@ handle_call({get_subscribers, AreaSpec}, _From, State) ->
 				[{AreaSpec, _ObjList, Subscribers}] -> {reply, Subscribers, State};
 				[] -> {reply, [], State};
 				Unknown ->  {stop, {error, unknown_cause, Unknown}}
-		end.
+		end;
+
+handle_call({get_members, AreaSpec}, _From, State) ->
+        {reply, ets:lookup_element(State#state.areas_tid, AreaSpec, 2), State}.
 
 
 %% --------------------------------------------------------------------
@@ -177,8 +213,17 @@ handle_cast({stop}, State) ->
 
 %% tree was created on other node, the tree id is already determined.
 %% TODO: this would require massive consistency checking and handling!!!
-handle_cast({new_tree, TreeId, Options}, State) ->
+%% TODO: assert that tree id has not been used before
+handle_cast({remote_new_tree, TreeId, Options}, State) ->
     ets:insert(State#state.trees_tid, {TreeId, Options}),
+    {noreply, State};
+
+handle_cast({remote_enter_area, ObjId, AreaSpec}, State) ->
+    do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
+    {noreply, State};
+
+handle_cast({remote_leave_area, ObjId, AreaSpec}, State) ->
+    do_area_remove_obj(State#state.areas_tid, AreaSpec, ObjId),
     {noreply, State}.
 
 %% --------------------------------------------------------------------

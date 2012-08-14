@@ -61,7 +61,7 @@ new_tree(Options) ->
 -spec add_obj(TreeId::pos_integer(), Position::vec_3d(), BBSize::vec_3d()) -> 
           {ok, ObjId::pos_integer(), AreaSpec::list()} | {error, term()}.
 add_obj(TreeId, Position, BBSize) -> 
-    case (catch doe_ets:add_obj(TreeId, Position, BBSize)) of
+    case  (catch doe_ets:new_obj(TreeId, Position, BBSize)) of
         {ok, ObjId, AreaSpec} -> doe_event_mgr:add_obj(ObjId, AreaSpec),
                                  {ok, ObjId, AreaSpec};
         {error, Reason} -> {error, Reason};
