@@ -149,8 +149,8 @@ handle_call({update_position, TreeId, ObjId, NewPos, NewBBSize}, _From, State) -
 				Unknown -> {stop, {error, unknown_cause, Unknown}}
 		end;
 
-handle_call({update_position, ObjId, OldAreaSpec, NewAreaSpec}, _From, State) ->
-        case (catch do_update_position(State, ObjId, OldAreaSpec, NewAreaSpec)) of
+handle_call({update_precalc_position, ObjId, OldAreaSpec, NewAreaSpec}, _From, State) ->
+        case (catch do_precalc_update_position(State, ObjId, OldAreaSpec, NewAreaSpec)) of
                 {ok, AreaSpec} -> {reply, {ok, AreaSpec}, State};
                 {ok, OldAreaSpec, NewAreaSpec} -> {reply, {ok, OldAreaSpec, NewAreaSpec}, State};
                 {error, Reason} -> {reply, {error, Reason}, State};
@@ -173,7 +173,13 @@ handle_call({get_subscribers, AreaSpec}, _From, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_cast({stop}, State) ->
-    {stop, shutdown, State}.
+    {stop, shutdown, State};
+
+%% tree was created on other node, the tree id is already determined.
+%% TODO: this would require massive consistency checking and handling!!!
+handle_cast({new_tree, TreeId, Options}, State) ->
+    ets:insert(State#state.trees_tid, {TreeId, Options}),
+    {noreply, State}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_info/2
@@ -205,7 +211,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%% --------------------------------------------------------------------
 
-do_update_position(State, ObjId, OldAreaSpec, NewAreaSpec) ->
+do_precalc_update_position(State, ObjId, OldAreaSpec, NewAreaSpec) ->
+    ?debugHere,
     % add to new area
     do_area_add_obj(State#state.areas_tid, NewAreaSpec, ObjId),
     % update obj entry
@@ -221,10 +228,15 @@ do_update_position(State, TreeId, ObjId, NewPos, NewBBSize) ->
     end,
     NewAreaSpec = make_area_code(TreeId, NewPos, NewBBSize, max_depth_opt(TreeOpts)),        
     case ets:lookup(State#state.objs_tid, ObjId) of
-        [{_, OldAreaSpec}] when OldAreaSpec == NewAreaSpec ->   % area has not changed, just report success. 
+        [{_, OldAreaSpec}] when OldAreaSpec == NewAreaSpec ->   
+            % ?debugFmt("area has not changed, just report success (~p, ~p)~n", [OldAreaSpec, NewAreaSpec]), 
             {ok, NewAreaSpec};
-        [{_, OldAreaSpec}] -> do_update_position(State, ObjId, OldAreaSpec, NewAreaSpec);        
-        [] -> {error, invalid_obj_id}
+        
+        [{_, OldAreaSpec}] -> 
+            % ?debugFmt("area has changed, send updates (~p, ~p)~n", [OldAreaSpec, NewAreaSpec]), 
+            do_precalc_update_position(State, ObjId, OldAreaSpec, NewAreaSpec);
+        
+        [] -> throw(invalid_obj_id)
     end.
 
 
@@ -258,7 +270,7 @@ make_area_code_step(AreaSpec, _MinPos, _MaxPos, _ObjPos, _BBSize, ResRest)
   when ResRest < 0 ->  AreaSpec;
 
 %% if any dimension objpos < minpos -> break
-make_area_code_step(AreaSpec, {MinPos1, _, _}, {MaxPos1, _, _}, {ObjPos1, _, _}, _, _) 
+make_area_code_step(AreaSpec, {MinPos1, _, _}, {_MaxPos1, _, _}, {ObjPos1, _, _}, _, _) 
 	when ObjPos1 < MinPos1 -> 
 %		?debugFmt("MinPos1: ~p, MaxPos1: ~p, ObjPos1: ~p~n", [MinPos1, MaxPos1, ObjPos1]),
 		AreaSpec;

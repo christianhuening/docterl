@@ -45,6 +45,7 @@ init([]) ->
 %%          remove_handler
 %% --------------------------------------------------------------------
 handle_event(Event, State) ->
+    ?debugFmt("setting last_event to ~p~n", [Event]),
     {ok, State#state{last_event=Event}}.
 
 %% --------------------------------------------------------------------

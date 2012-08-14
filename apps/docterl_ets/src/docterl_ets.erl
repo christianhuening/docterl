@@ -44,7 +44,7 @@
 -spec new_tree(Options::list()) -> {ok, pos_integer()} | {error | term()}.
 new_tree(Options) -> 
     case (catch doe_ets:new_tree(Options)) of
-        {ok, TreeId} -> doe_event_mgr:new_tree(TreeId), 
+        {ok, TreeId} -> doe_event_mgr:new_tree(TreeId, Options), 
                         {ok, TreeId};
         {error, Reason} -> {error, Reason};
         Other -> {error, {unknown_result, Other}} 
@@ -91,12 +91,12 @@ remove_obj(TreeId, ObjId) ->
                       NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, AreaSpec::list()} | {error, term()}.
 update_position(TreeId, ObjId, NewPos, NewBBSize) -> 
     case (catch doe_ets:update_position(TreeId, ObjId, NewPos, NewBBSize)) of
-        {ok, {AreaSpec}} ->   % the area was not changed. 
-            doe_event_mgr:update_position(ObjId, AreaSpec),
+        {ok, AreaSpec} ->   % the area was not changed. 
+            doe_event_mgr:update_position(ObjId, AreaSpec, NewPos, NewBBSize),
             {ok, AreaSpec}; 
         {ok, OldAreaSpec, NewAreaSpec} -> 
             doe_event_mgr:update_area(ObjId, OldAreaSpec, NewAreaSpec),
-            doe_event_mgr:update_position(ObjId, NewAreaSpec),
+            doe_event_mgr:update_position(ObjId, NewAreaSpec, NewPos, NewBBSize),
             {ok, NewAreaSpec};
         {error, Reason} -> {error, Reason};
         Other -> {error, {unknown_result, Other}} 
