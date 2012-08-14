@@ -30,7 +30,7 @@
 %% ====================================================================
 
 %% --------------------------------------------------------------------
-%% Function: make_tree/1
+%% Function: new_tree/1
 %% Description: initialise a new tree
 %%
 %% the tree will contain a 3-D box with a edge length of 1.0 
@@ -44,7 +44,7 @@
 -spec new_tree(Options::list()) -> {ok, pos_integer()} | {error | term()}.
 new_tree(Options) -> 
     case (catch doe_ets:new_tree(Options)) of
-        {ok, TreeId} -> doe_tree_event:new_tree(TreeId), 
+        {ok, TreeId} -> doe_event_mgr:new_tree(TreeId), 
                         {ok, TreeId};
         {error, Reason} -> {error, Reason};
         Other -> {error, {unknown_result, Other}} 
@@ -62,7 +62,7 @@ new_tree(Options) ->
           {ok, ObjId::pos_integer(), AreaSpec::list()} | {error, term()}.
 add_obj(TreeId, Position, BBSize) -> 
     case (catch doe_ets:add_obj(TreeId, Position, BBSize)) of
-        {ok, ObjId, AreaSpec} -> doe_tree_event:add_obj(ObjId, AreaSpec),
+        {ok, ObjId, AreaSpec} -> doe_event_mgr:add_obj(ObjId, AreaSpec),
                                  {ok, ObjId, AreaSpec};
         {error, Reason} -> {error, Reason};
         Other -> {error, {unknown_result, Other}} 
@@ -72,7 +72,7 @@ add_obj(TreeId, Position, BBSize) ->
           ok | {error, unkown_tree} | {error, invalid_obj} | {error, Reason::term()}.
 remove_obj(TreeId, ObjId) ->
     case (catch doe_ets:remove_obj(TreeId, ObjId)) of
-        ok -> doe_tree_event:remove_obj(TreeId, ObjId),
+        ok -> doe_event_mgr:remove_obj(TreeId, ObjId),
               ok;
         {error, Reason} -> {error, Reason};
         Other -> {error, {unknown_result, Other}} 
@@ -92,11 +92,11 @@ remove_obj(TreeId, ObjId) ->
 update_position(TreeId, ObjId, NewPos, NewBBSize) -> 
     case (catch doe_ets:update_position(TreeId, ObjId, NewPos, NewBBSize)) of
         {ok, {AreaSpec}} ->   % the area was not changed. 
-            doe_tree_event:update_position(ObjId, AreaSpec),
+            doe_event_mgr:update_position(ObjId, AreaSpec),
             {ok, AreaSpec}; 
         {ok, OldAreaSpec, NewAreaSpec} -> 
-            doe_tree_event:update_area(ObjId, OldAreaSpec, NewAreaSpec),
-            doe_tree_event:update_position(ObjId, NewAreaSpec),
+            doe_event_mgr:update_area(ObjId, OldAreaSpec, NewAreaSpec),
+            doe_event_mgr:update_position(ObjId, NewAreaSpec),
             {ok, NewAreaSpec};
         {error, Reason} -> {error, Reason};
         Other -> {error, {unknown_result, Other}} 

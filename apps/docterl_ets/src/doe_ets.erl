@@ -68,7 +68,7 @@ stop() -> gen_server:cast({local, ?MODULE}, {stop}).
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 -spec new_tree(Options::list()) -> {ok, pos_integer()} | {error | term()}.
-new_tree(Options) -> gen_server:call(?MODULE, {make_tree, Options}).
+new_tree(Options) -> gen_server:call(?MODULE, {new_tree, Options}).
 
 %% --------------------------------------------------------------------
 %% Function: add_obj/3
@@ -122,9 +122,9 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_call({make_tree, Options}, _From, State) ->
+handle_call({new_tree, Options}, _From, State) ->
 		NewId = do_make_tree(State#state.trees_tid, Options),
-	  {reply, NewId, State};
+	  {reply, {ok, NewId}, State};
 
 handle_call({add_obj, TreeId, Position, BBSize}, _From, State) ->	
     [{TreeId, TreeOpts}] = ets:lookup(State#state.trees_tid, TreeId), % TODO: handle error

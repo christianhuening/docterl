@@ -9,11 +9,12 @@
 %%%
 %%% Created : 10.08.2012
 %%% -------------------------------------------------------------------
--module(doe_tree_event).
+-module(doe_event_mgr).
 
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
+-include_lib("eunit/include/eunit.hrl").
 
 -define(SERVER, ?MODULE).
 
@@ -27,7 +28,9 @@
 %% External functions
 %% ====================================================================
 start_link() -> 
-    gen_event:start_link({local, ?SERVER}).
+    Ret = gen_event:start_link({local, ?SERVER}),
+    % ?debugFmt("gen_event:start_link returned: ~p~n", [Ret]),
+		Ret.
 
 %
 % register a local handler for events.

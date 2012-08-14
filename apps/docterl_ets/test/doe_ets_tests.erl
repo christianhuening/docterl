@@ -53,6 +53,7 @@ make_new_treeid_test_() ->
                       ?_test(
                       begin
                           TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
+													% ?debugMsg("do first make_new_id"),
                           ?assertEqual(1, doe_ets:make_new_id(TreesTId)),
                           doe_ets:do_make_tree(TreesTId, []),
                           ?assertEqual(2, doe_ets:make_new_id(TreesTId)),
@@ -89,15 +90,15 @@ create_and_remove_obj_test_() ->
        fun(_Foo) -> [
                      ?_test(
                      begin
-                         StartRet = doe_ets:start_link(),
-                         ?debugFmt("StartRet: ~p~n", [StartRet]),
-                         TreeId = doe_ets:new_tree([]),
-                         {ok, ObjId, Spec1} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
-                         ?debugFmt("Spec1: ~p~n", [Spec1]),
-                         Spec2 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.1, 0.1}),
-                         ?debugFmt("Spec2: ~p~n", [Spec2]),
-                         Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
-                         ?debugFmt("Spec3: ~p~n", [Spec3]),
+                         _StartRet = doe_ets:start_link(),
+                         % ?debugFmt("StartRet: ~p~n", [StartRet]),
+                         {ok, TreeId} = doe_ets:new_tree([]),
+                         {ok, ObjId, _Spec1} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
+                         % ?debugFmt("Spec1: ~p~n", [Spec1]),
+                         _Spec2 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.1, 0.1}),
+                         % ?debugFmt("Spec2: ~p~n", [Spec2]),
+                         _Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
+                         % ?debugFmt("Spec3: ~p~n", [Spec3]),
                          doe_ets:remove_obj(TreeId, ObjId),
                          doe_ets:stop()
                      end)
@@ -113,7 +114,7 @@ run_a_thousand_updates_test_() ->
                      begin
                          StartRet = doe_ets:start_link(),
                          ?debugFmt("StartRet: ~p~n", [StartRet]),
-                         TreeId = doe_ets:new_tree([]),
+                         {ok, TreeId} = doe_ets:new_tree([]),
                          {ok, ObjId, _} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
                          test_avg(doe_ets_tests, 
                                   do_update, 

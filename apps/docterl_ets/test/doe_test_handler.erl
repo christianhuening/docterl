@@ -14,16 +14,18 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([]).
+-export([get_last_event/0]).
 
 %% gen_event callbacks
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2, code_change/3]).
 
--record(state, {}).
+-record(state, {last_event}).
 
 %% ====================================================================
 %% External functions
 %% ====================================================================
+
+get_last_event() -> gen_event:call(doe_event_mgr, doe_test_handler, {get_last_event}).
 
 %% ====================================================================
 %% Server functions
@@ -42,11 +44,8 @@ init([]) ->
 %%          {swap_handler, Args1, State1, Mod2, Args2} |
 %%          remove_handler
 %% --------------------------------------------------------------------
-handle_event({new_obj, _ObjId, _AreaSpec}, State) ->
-    {ok, State};
-
-handle_event({update_area, _ObjId, _AreaSpec}, State) ->
-    {ok, State}.
+handle_event(Event, State) ->
+    {ok, State#state{last_event=Event}}.
 
 %% --------------------------------------------------------------------
 %% Func: handle_call/2
@@ -54,9 +53,8 @@ handle_event({update_area, _ObjId, _AreaSpec}, State) ->
 %%          {swap_handler, Reply, Args1, State1, Mod2, Args2} |
 %%          {remove_handler, Reply}
 %% --------------------------------------------------------------------
-handle_call(Request, State) ->
-    Reply = ok,
-    {ok, Reply, State}.
+handle_call({get_last_event}, State) ->
+    {ok, State#state.last_event, State}.
 
 %% --------------------------------------------------------------------
 %% Func: handle_info/2
