@@ -43,6 +43,9 @@ init([]) ->
 %%          {swap_handler, Args1, State1, Mod2, Args2} |
 %%          remove_handler
 %% --------------------------------------------------------------------
+handle_event({local_new_tree, _TreeId}, State) ->
+    {ok, State};
+
 handle_event({new_tree, _TreeId}, State) ->
     {ok, State};
 

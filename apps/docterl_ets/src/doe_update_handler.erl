@@ -5,7 +5,7 @@
 %%%
 %%% Created : 13.08.2012
 %%% -------------------------------------------------------------------
--module(doe_local_update_handler).
+-module(doe_update_handler).
 
 -behaviour(gen_event).
 %% --------------------------------------------------------------------
@@ -43,11 +43,32 @@ init([]) ->
 %%          {swap_handler, Args1, State1, Mod2, Args2} |
 %%          remove_handler
 %% --------------------------------------------------------------------
-handle_event({new_obj, _ObjId, _AreaSpec}, State) ->
+handle_event({new_tree, TreeID, Options}, State) ->
+     doe_ets:new_tree(TreeID, Options),
     {ok, State};
 
-handle_event({update_area, _ObjId, _AreaSpec}, State) ->
-    {ok, State}.
+handle_event({new_obj, ObjId, AreaSpec}, State) ->
+    doe_ets:add_obj(ObjId, AreaSpec),
+    {ok, State};
+
+handle_event({enter_area, ObjId, AreaSpec}, State) ->
+    doe_ets:enter_area(ObjId, AreaSpec),
+    {ok, State};
+
+handle_event({leave_area, ObjId, AreaSpec}, State) ->
+    doe_ets:leave_area(ObjId, AreaSpec),
+    {ok, State};
+
+% as only the are is tracked in the tables, this is a NoOp for this handler.
+% the event will still be of importance of actual users of this information
+handle_event({update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, State) ->
+    {ok, State};
+
+handle_event({local_new_tree, _TreeId, _Options}, State) -> {ok, State};
+handle_event({local_new_obj, _ObjId, _AreaSpec}, State) ->{ok, State};
+handle_event({local_leave_area, _ObjId, _AreaSpec}, State) -> {ok, State};
+handle_event({local_enter_area, _ObjId, _AreaSpec}, State) -> {ok, State};
+handle_event({local_update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, State) -> {ok, State}.
 
 %% --------------------------------------------------------------------
 %% Func: handle_call/2
