@@ -87,6 +87,9 @@ remove_obj(TreeId, ObjId) ->
 %%
 %% Both optimisations are not used right now.
 %%
+%% TODO: check for position interval ( 0 < pos < 1.0 ) and size
+%%
+
 -spec update_position(TreeId::pos_integer(), ObjId::pos_integer(), 
                       NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, AreaSpec::list()} | {error, term()}.
 update_position(TreeId, ObjId, NewPos, NewBBSize) -> 

@@ -5,7 +5,7 @@
 %%
 -include_lib("eunit/include/eunit.hrl").
 
--export([do_update/4]).
+-export([do_update/5]).
 
 
 do_make_area_test({Position, BBSize, Expected}) -> 
@@ -85,13 +85,11 @@ make_new_new_test_() ->
 create_and_remove_obj_test_() -> 
     {"create and remove an object",
      { setup,
-       fun fixStart/0,
-       fun fixStop/1,
+       fun fixStartServer/0,
+       fun fixStopServer/1,
        fun(_Foo) -> [
                      ?_test(
                      begin
-                         _StartRet = doe_ets:start_link(),
-                         % ?debugFmt("StartRet: ~p~n", [StartRet]),
                          {ok, TreeId} = doe_ets:new_tree([]),
                          {ok, ObjId, _Spec1} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
                          % ?debugFmt("Spec1: ~p~n", [Spec1]),
@@ -107,13 +105,11 @@ create_and_remove_obj_test_() ->
 run_a_thousand_updates_test_() ->
 		{"run update multiple times and measure runtim",
      { setup,
-       fun fixStart/0,
-       fun fixStop/1,
+       fun fixStartServer/0,
+       fun fixStopServer/1,
        fun(_Foo) -> [
                      ?_test(
                      begin
-                         StartRet = doe_ets:start_link(),
-                         ?debugFmt("StartRet: ~p~n", [StartRet]),
                          {ok, TreeId} = doe_ets:new_tree([]),
                          {ok, ObjId, _} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
                          test_avg(doe_ets_tests, 
@@ -124,8 +120,26 @@ run_a_thousand_updates_test_() ->
                      end)
                     ] end }}.
 
-do_update(TreeId, ObjId, NewPos, NewSize) ->
-		doe_ets:update_position(TreeId, ObjId, vec_inc(NewPos, 0.0001), NewSize).
+run_a_thousand_different_updates_test_() ->
+        {"run update multiple times and measure runtim",
+     { setup,
+       fun fixStartServer/0,
+       fun fixStopServer/1,
+       fun(_Foo) -> [
+                     ?_test(
+                     begin
+                         {ok, TreeId} = doe_ets:new_tree([]),
+                         {ok, ObjId, _} = doe_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}),
+                         test_avg(doe_ets_tests, 
+                                  do_update, 
+                                  [TreeId, ObjId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}], 
+                                  10000),
+                         doe_ets:remove_obj(TreeId, ObjId)
+                     end)
+                    ] end }}.
+
+do_update(Count, TreeId, ObjId, NewPos, NewSize) ->
+		doe_ets:update_position(TreeId, ObjId, vec_inc(NewPos, 0.00002 * Count), NewSize).
 
 vec_inc({Vec1, Vec2, Vec3}, Inc) ->
 		{Vec1+Inc,Vec2+Inc,Vec3+Inc}.
@@ -150,7 +164,7 @@ test_avg(M, F, A, N) when N > 0 ->
 test_loop(_M, _F, _A, 0, List) ->
     List;
 test_loop(M, F, A, N, List) ->
-    {T, _Result} = timer:tc(M, F, A),
+    {T, _Result} = timer:tc(M, F, [N|A]),
     test_loop(M, F, A, N - 1, [T|List]).
 
 
@@ -161,7 +175,18 @@ fixStart() ->
 fixStop(_Pid) ->
 %% 	application:stop(sasl),
 	ok.
-					
+
+fixStartServer() ->
+%%  application:start(sasl),
+    _StartRet = doe_ets:start_link(),
+    % ?debugFmt("StartRet: ~p~n", [StartRet]),
+  ok.
+
+fixStopServer(_Pid) ->
+%%  application:stop(sasl),
+    doe_ets:stop(),
+    ok.
+
 %% sleep for number of miliseconds
 %% sleep(T) ->
 %% 	receive 

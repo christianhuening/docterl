@@ -212,7 +212,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%% --------------------------------------------------------------------
 
 do_precalc_update_position(State, ObjId, OldAreaSpec, NewAreaSpec) ->
-    ?debugHere,
     % add to new area
     do_area_add_obj(State#state.areas_tid, NewAreaSpec, ObjId),
     % update obj entry
@@ -336,11 +335,13 @@ do_area_remove_obj(AreasTId, AreaSpec, ObjId) ->
     
 do_area_add_obj(AreasTId, AreaSpec, ObjId) ->
 		case ets:lookup(AreasTId, AreaSpec) of
-				[] -> ObjsToWrite = [ObjId], SubsToWrite = [];
+				[] ->                                 ObjsToWrite = [ObjId], SubsToWrite = [];
+            
 				[{AreaSpec, ObjList, Subscribers}] -> ObjsToWrite = [ObjId|ObjList], SubsToWrite = Subscribers;
-				Ret -> ?debugFmt("multiple Entries: ~p~n", [Ret]), 
-							 ObjsToWrite = SubsToWrite = [],
-							 throw(multiple_area_entries)
+            
+				Ret ->                                ?debugFmt("multiple Entries: ~p~n", [Ret]), 
+							                          ObjsToWrite = SubsToWrite = [],
+							                          throw(multiple_area_entries)
 		end,
     ets:insert(AreasTId, {AreaSpec, ObjsToWrite, SubsToWrite}).
 
