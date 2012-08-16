@@ -1,15 +1,16 @@
 %%% -------------------------------------------------------------------
-%%% Author  : sage
-%%% Description : maintain actual octree data structure (or ets tables in 
+%%% @author Lutz Behnke <lutz.behnke@informatik.haw-hamburg.de>
+%%% @copyright Lutz Behnke
+%%% @doc
+%%%  maintain actual octree data structure (or ets tables in 
 %%%               this case.) This module will not publish the changes to other 
 %%%               nodes!
-%%%
+%%%  <p>
 %%%  Important note: The 'objs' table does not hold any information 
 %%%  about the objects managed by this octree, beyond the position.
 %%%  If there is additional data to be maintained, this needs to be done
 %%%  by the application using this code in a separate table/database
-%%%
-%%% Created : 04.08.2012
+%%%  @end
 %%% -------------------------------------------------------------------
 -module(doe_ets).
 
@@ -45,13 +46,18 @@
 %% ====================================================================
 
 %% --------------------------------------------------------------------
-%% Function: start_link/0
-%% Description: set up the ets tables 
-%%  Options:
-%% Returns: {ok, PID}
+%% @doc start server.
+%% @end
 %% --------------------------------------------------------------------
-start_link() -> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+-spec start_link() -> {ok, Pid::pid()} | ignore | {error, Reason::term()}.
+start_link() -> 
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 	
+%% --------------------------------------------------------------------
+%% @doc halt server.
+%% @end
+%% --------------------------------------------------------------------
+-spec stop() -> ok.
 stop() -> gen_server:cast({local, ?MODULE}, {stop}).
 
 
@@ -134,7 +140,7 @@ get_members(AreaSpec) -> gen_server:call(?MODULE, {get_members, AreaSpec}).
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-	TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
+    TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
     ObjsTId = ets:new(objs, [set]),
     AreasTId = ets:new(areas, [set]),
     {ok, #state{trees_tid = TreesTId, areas_tid = AreasTId, objs_tid = ObjsTId}}.

@@ -7,12 +7,9 @@
 
 -export([do_update/5]).
 
-
-do_make_area_test({Position, BBSize, Expected}) -> 
-			Ret = doe_ets:make_area_code(1, Position, BBSize, 10),
-%			?debugFmt("generated : ~p~n", [Ret]).
-			?assertEqual(Expected, Ret),
-			true.
+%% ====================================================================
+%% Test internal functions
+%% ====================================================================
 
 make_area_test_() -> 
     { "test the computation of the area spec",
@@ -82,6 +79,7 @@ make_new_new_test_() ->
                   end)
                  ] end }}.
 
+
 create_and_remove_obj_test_() -> 
     {"create and remove an object",
      { setup,
@@ -102,8 +100,9 @@ create_and_remove_obj_test_() ->
                      end)
                     ] end }}.
 
+
 run_a_thousand_updates_test_() ->
-		{"run update multiple times and measure runtim",
+    {"run update multiple times and measure runtim",
      { setup,
        fun fixStartServer/0,
        fun fixStopServer/1,
@@ -120,8 +119,9 @@ run_a_thousand_updates_test_() ->
                      end)
                     ] end }}.
 
+
 run_a_thousand_different_updates_test_() ->
-        {"run update multiple times and measure runtim",
+    {"run update multiple times and measure runtim",
      { setup,
        fun fixStartServer/0,
        fun fixStopServer/1,
@@ -137,6 +137,36 @@ run_a_thousand_different_updates_test_() ->
                          doe_ets:remove_obj(TreeId, ObjId)
                      end)
                     ] end }}.
+
+%% ====================================================================
+%% Test API functions
+%% ====================================================================
+
+start_link_test_() ->
+    {"test starting server",
+     { setup,
+       fun fixStart/0,
+       fun fixStop/1,
+       fun(_Foo) -> [
+                     ?_test(
+                     begin
+                         case doe_ets:start_link() of
+                             {ok, _Pid} -> ok;
+                             Failure -> ?debugFmt("starting doe_ets failed: ~p~n", [Failure]), ?assert(false)
+                         end,
+                         doe_ets:stop()
+                     end)
+                    ] end }}.
+
+%% ====================================================================
+%% utility functions for tests
+%% ====================================================================
+
+do_make_area_test({Position, BBSize, Expected}) -> 
+      Ret = doe_ets:make_area_code(1, Position, BBSize, 10),
+%     ?debugFmt("generated : ~p~n", [Ret]).
+      ?assertEqual(Expected, Ret),
+      true.
 
 do_update(Count, TreeId, ObjId, NewPos, NewSize) ->
 		doe_ets:update_position(TreeId, ObjId, vec_inc(NewPos, 2.0e-5 * Count), NewSize).

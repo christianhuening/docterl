@@ -32,21 +32,21 @@ new_obj_test_() ->
                       end)
                      ] end }}.
 
-remove_obj_test_() -> 
-    { "remove an object",
-      { setup,
-        fun fixStart/0,
-        fun fixStop/1,
-        fun(_Foo) -> [
-                      ?_test(
-                      begin
-                          {ok, TreeId} = docterl_ets:new_tree([]),
-                          {ok, ObjId, AreaSpec} = docterl_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
-                          docterl_ets:remove_obj(TreeId, ObjId),
-                          {ok, Members} = doe_ets:get_members(AreaSpec),
-                          ?assertNot(lists:member(ObjId, Members))
-                      end)
-                     ] end }}.
+%% remove_obj_test_() -> 
+%%     { "remove an object",
+%%       { setup,
+%%         fun fixStart/0,
+%%         fun fixStop/1,
+%%         fun(_Foo) -> [
+%%                       ?_test(
+%%                       begin
+%%                           {ok, TreeId} = docterl_ets:new_tree([]),
+%%                           {ok, ObjId, AreaSpec} = docterl_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
+%%                           docterl_ets:remove_obj(TreeId, ObjId),
+%%                           {ok, Members} = doe_ets:get_members(AreaSpec),
+%%                           ?assertNot(lists:member(ObjId, Members))
+%%                       end)
+%%                      ] end }}.
 
 %% _test_() -> 
 %%     { "",
@@ -71,4 +71,11 @@ fixStop(_Pid) ->
     %%  application:stop(sasl),
     doe_ets:stop(),
     doe_event_mgr:stop(),
+    sleep(100),
     ok.
+
+%% sleep for number of miliseconds
+sleep(T) ->
+ receive 
+   after T -> ok 
+ end.
