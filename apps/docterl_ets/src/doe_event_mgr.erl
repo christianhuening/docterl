@@ -29,7 +29,7 @@
 %% ====================================================================
 start_link() -> 
     Ret = gen_event:start_link({local, ?SERVER}),
-    ?debugFmt("gen_event:start_link returned: ~p~n", [Ret]),
+    % ?debugFmt("gen_event:start_link returned: ~p~n", [Ret]),
 		Ret.
 
 stop() -> gen_event:stop(?SERVER).
@@ -59,7 +59,7 @@ unsubscribe(AreaSpec) ->
 new_tree(TreeId, Options) -> 
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_new_tree, TreeId, Options}),
-    ?debugMsg("local notification sent"),
+    % ?debugMsg("local notification sent"),
     % then the others, as this may take some time.
     gen_server:abcast(erlang:nodes(), doe_ets, {new_tree, TreeId, Options}).
 
@@ -68,7 +68,7 @@ new_tree(TreeId, Options) ->
 % will be handled by the area update.
 %
 add_obj(ObjId, AreaSpec) ->
-    ?debugFmt("notifying of add_obj for ~p in ~p~n", [ObjId, AreaSpec]),
+    % ?debugFmt("notifying of add_obj for ~p in ~p~n", [ObjId, AreaSpec]),
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_new_obj, ObjId, AreaSpec}),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),

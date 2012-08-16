@@ -2,7 +2,9 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-
+info_test_() -> 
+    { setup, fun() -> ok end, 
+      fun() -> ?debugFmt("~n############################################~n      starting ~p~n############################################~n  ", [?MODULE]) end }.
 
 start_app_test_() -> 
     { "start the application",
@@ -19,16 +21,17 @@ start_app_test_() ->
                      ] end }}.
 
 fixStart() ->
-    application:start(sasl),
+    %% application:start(sasl),
     ok.
 
 fixStop(_Pid) ->
-    application:stop(sasl),
     application:stop(docterl_ets),
+    %% application:stop(sasl),
+    sleep(100),
     ok.
 
 % sleep for number of miliseconds
-%% sleep(T) ->
-%%  receive 
-%%    after T -> ok 
-%%  end.
+sleep(T) ->
+ receive 
+   after T -> ok 
+ end.

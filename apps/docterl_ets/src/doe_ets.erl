@@ -51,6 +51,7 @@
 %% --------------------------------------------------------------------
 -spec start_link() -> {ok, Pid::pid()} | ignore | {error, Reason::term()}.
 start_link() -> 
+    ?debugMsg("starting doe_ets server"),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 	
 %% --------------------------------------------------------------------
@@ -58,7 +59,8 @@ start_link() ->
 %% @end
 %% --------------------------------------------------------------------
 -spec stop() -> ok.
-stop() -> gen_server:cast({local, ?MODULE}, {stop}).
+stop() -> Ret = gen_server:call(?MODULE, {stop}),
+          ?debugFmt("the call to stop the server returned: ~p~n", [Ret]).
 
 
 %% --------------------------------------------------------------------
@@ -143,6 +145,7 @@ init([]) ->
     TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
     ObjsTId = ets:new(objs, [set]),
     AreasTId = ets:new(areas, [set]),
+%%    process_flag(trap_exit, true),
     {ok, #state{trees_tid = TreesTId, areas_tid = AreasTId, objs_tid = ObjsTId}}.
 
 %% --------------------------------------------------------------------
@@ -204,7 +207,12 @@ handle_call({get_subscribers, AreaSpec}, _From, State) ->
 		end;
 
 handle_call({get_members, AreaSpec}, _From, State) ->
-        {reply, ets:lookup_element(State#state.areas_tid, AreaSpec, 2), State}.
+        {reply, ets:lookup_element(State#state.areas_tid, AreaSpec, 2), State};
+
+
+handle_call({stop}, _From, State) ->
+%%     {reply, ok, State}.
+    {stop, shutdown, State}.
 
 
 %% --------------------------------------------------------------------
@@ -214,9 +222,6 @@ handle_call({get_members, AreaSpec}, _From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_cast({stop}, State) ->
-    {stop, shutdown, State};
-
 %% tree was created on other node, the tree id is already determined.
 %% TODO: this would require massive consistency checking and handling!!!
 %% TODO: assert that tree id has not been used before
@@ -247,7 +252,8 @@ handle_info(_Info, State) ->
 %% Description: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %% --------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(Reason, State) ->
+    ?debugFmt("terminating doe_ets server. Reason: ~p~n", [Reason]),
     ok.
 
 %% --------------------------------------------------------------------

@@ -5,6 +5,9 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+info_test_() -> 
+    { setup, fun() -> ok end, 
+      fun() -> ?debugFmt("~n############################################~n      starting ~p~n############################################~n  ", [?MODULE]) end }.
 
 
 new_tree_test_() -> 

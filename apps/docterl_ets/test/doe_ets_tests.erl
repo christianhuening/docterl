@@ -7,6 +7,43 @@
 
 -export([do_update/5]).
 
+info_test_() -> 
+    { setup, fun() -> ok end, 
+      fun() -> ?debugFmt("~n############################################~n      starting ~p~n############################################~n  ", [?MODULE]) end }.
+
+
+internal_funcs_test_() -> 
+    {setup,
+     fun() ->
+             application:start(sasl),
+             ok
+     end,
+     fun(_PId) ->
+             application:stop(sasl),
+             ok
+     end,
+     fun(PId) -> [?_test(test_start_stop(PId))]
+     end 
+    }.
+
+
+%% ====================================================================
+%% Test API functions
+%% ====================================================================
+
+test_start_stop(_Foo) ->
+    ?debugMsg("starting start_link_test"),
+    case doe_ets:start_link() of
+        {ok, _Pid} -> ok;
+        Failure -> ?debugFmt("starting doe_ets failed: ~p~n", [Failure]), 
+                   ?assert(false)
+    end,
+    Ret = (catch doe_ets:stop()),
+    ?debugFmt("stop returned: ~p", [Ret]),
+    sleep(100),
+    ?assertNot(lists:member(doe_ets, erlang:registered())).
+
+
 %% ====================================================================
 %% Test internal functions
 %% ====================================================================
@@ -16,32 +53,34 @@ make_area_test_() ->
       { setup,
         fun fixStart/0,
         fun fixStop/1,
-        fun(_Foo) -> [
-                      ?_test(
-                      begin
-                          TestCases = [
-                                       {{0.1, 0.1, 0.1}, 
-                                        {0.01, 0.01, 0.01}, 
-                                        [1,0,0,0,7,7]},
-                                       {{0.1, 0.1, 0.1}, 
-                                        {0.16, 0.16, 0.16}, 
-                                        [1,0]},
-                                       {{0.1, 0.2, 0.3}, 
-                                        {0.01, 0.01, 0.01}, 
-                                        [1,0,4,2,3,5]},
-                                       {{0.01, 0.01, 0.01}, 
-                                        {0.5, 0.5, 0.5}, 
-                                        [1]},
-                                       {{1.0e-7, 1.0e-7, 1.0e-7}, 
-                                        {1.0e-6, 1.0e-6, 1.0e-6}, 
-                                        [1,0,0,0,0,0,0,0,0,0,0]},
-                                       {{0.01, 0.01, 0.01}, {0.1, 0.2, 0.3}, [1,0]}
-                                      ],
-                          lists:all(fun do_make_area_test/1, TestCases)
-                      end)
+        fun(Args) -> [
+                      ?_test(test_make_area(Args))
                      ] end }}.
 
-make_new_treeid_test_() -> 
+test_make_area(_Args) ->
+    ?debugMsg("starting make_area_test"),
+    TestCases = [
+                 {{0.1, 0.1, 0.1}, 
+                  {0.01, 0.01, 0.01}, 
+                  [1,0,0,0,7,7]},
+                 {{0.1, 0.1, 0.1}, 
+                  {0.16, 0.16, 0.16}, 
+                  [1,0]},
+                 {{0.1, 0.2, 0.3}, 
+                  {0.01, 0.01, 0.01}, 
+                  [1,0,4,2,3,5]},
+                 {{0.01, 0.01, 0.01}, 
+                  {0.5, 0.5, 0.5}, 
+                  [1]},
+                 {{1.0e-7, 1.0e-7, 1.0e-7}, 
+                  {1.0e-6, 1.0e-6, 1.0e-6}, 
+                  [1,0,0,0,0,0,0,0,0,0,0]},
+                 {{0.01, 0.01, 0.01}, {0.1, 0.2, 0.3}, [1,0]}
+                ],
+    lists:all(fun do_make_area_test/1, TestCases).
+
+    
+make_new_treeid_teAst_() -> 
     { "test lookup of tree ids in table",
       { setup,
         fun fixStart/0,
@@ -49,6 +88,7 @@ make_new_treeid_test_() ->
         fun(_Foo) -> [
                       ?_test(
                       begin
+                          ?debugMsg("starting make_new_treeid_test"),
                           TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
 													% ?debugMsg("do first make_new_id"),
                           ?assertEqual(1, doe_ets:make_new_id(TreesTId)),
@@ -61,7 +101,7 @@ make_new_treeid_test_() ->
                      ] end }}.
 
 
-make_new_new_test_() -> 
+make_new_new_teAst_() -> 
 { "test lookup of new ids in table",
   { setup,
     fun fixStart/0,
@@ -69,6 +109,7 @@ make_new_new_test_() ->
     fun(_Foo) -> [
                   ?_test(
                   begin
+                      ?debugMsg("starting make_new_new_test"),
                       ObjsTId = ets:new(objs, [set]),
                       ?assertEqual(1, doe_ets:make_new_id(ObjsTId)),
                       doe_ets:do_make_obj(ObjsTId, [1]),
@@ -80,7 +121,7 @@ make_new_new_test_() ->
                  ] end }}.
 
 
-create_and_remove_obj_test_() -> 
+create_and_remove_obj_teAst_() -> 
     {"create and remove an object",
      { setup,
        fun fixStartServer/0,
@@ -88,6 +129,7 @@ create_and_remove_obj_test_() ->
        fun(_Foo) -> [
                      ?_test(
                      begin
+                         ?debugMsg("starting create_and_remove_obj_test"),
                          {ok, TreeId} = doe_ets:new_tree([]),
                          {ok, ObjId, _Spec1} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
                          % ?debugFmt("Spec1: ~p~n", [Spec1]),
@@ -96,12 +138,12 @@ create_and_remove_obj_test_() ->
                          _Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
                          % ?debugFmt("Spec3: ~p~n", [Spec3]),
                          doe_ets:remove_obj(TreeId, ObjId),
-                         doe_ets:stop()
+                         ?debugMsg("end create_and_remove_obj_test")
                      end)
                     ] end }}.
 
 
-run_a_thousand_updates_test_() ->
+run_a_thousand_updates_teAst_() ->
     {"run update multiple times and measure runtim",
      { setup,
        fun fixStartServer/0,
@@ -109,6 +151,7 @@ run_a_thousand_updates_test_() ->
        fun(_Foo) -> [
                      ?_test(
                      begin
+                         ?debugMsg("starting run_a_throusand_updates_test"),
                          {ok, TreeId} = doe_ets:new_tree([]),
                          {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
                          test_avg(doe_ets_tests, 
@@ -120,7 +163,7 @@ run_a_thousand_updates_test_() ->
                     ] end }}.
 
 
-run_a_thousand_different_updates_test_() ->
+run_a_thousand_different_updates_teAst_() ->
     {"run update multiple times and measure runtim",
      { setup,
        fun fixStartServer/0,
@@ -128,6 +171,7 @@ run_a_thousand_different_updates_test_() ->
        fun(_Foo) -> [
                      ?_test(
                      begin
+                          ?debugMsg("starting run_a_thousand_different_updates_test"),
                          {ok, TreeId} = doe_ets:new_tree([]),
                          {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}),
                          test_avg(doe_ets_tests, 
@@ -138,25 +182,6 @@ run_a_thousand_different_updates_test_() ->
                      end)
                     ] end }}.
 
-%% ====================================================================
-%% Test API functions
-%% ====================================================================
-
-start_link_test_() ->
-    {"test starting server",
-     { setup,
-       fun fixStart/0,
-       fun fixStop/1,
-       fun(_Foo) -> [
-                     ?_test(
-                     begin
-                         case doe_ets:start_link() of
-                             {ok, _Pid} -> ok;
-                             Failure -> ?debugFmt("starting doe_ets failed: ~p~n", [Failure]), ?assert(false)
-                         end,
-                         doe_ets:stop()
-                     end)
-                    ] end }}.
 
 %% ====================================================================
 %% utility functions for tests
@@ -199,26 +224,27 @@ test_loop(M, F, A, N, List) ->
 
 
 fixStart() ->
-%% 	application:start(sasl),
+%%  	application:start(sasl),
   ok.
 
 fixStop(_Pid) ->
-%% 	application:stop(sasl),
+%%  	application:stop(sasl),
 	ok.
 
 fixStartServer() ->
-%%  application:start(sasl),
-    _StartRet = doe_ets:start_link(),
-    % ?debugFmt("StartRet: ~p~n", [StartRet]),
+  %% application:start(sasl),
+    StartRet = doe_ets:start_link(),
+    ?debugFmt("StartRet: ~p~n", [StartRet]),
   ok.
 
 fixStopServer(_Pid) ->
-%%  application:stop(sasl),
+  %% application:stop(sasl),
     doe_ets:stop(),
+    sleep(100),
     ok.
 
 %% sleep for number of miliseconds
-%% sleep(T) ->
-%% 	receive 
-%% 		after T -> ok 
-%% 	end.
+sleep(T) ->
+	receive 
+		after T -> ok 
+	end.
