@@ -59,8 +59,10 @@ start_link() ->
 %% @end
 %% --------------------------------------------------------------------
 -spec stop() -> ok.
-stop() -> Ret = gen_server:call(?MODULE, {stop}),
-          ?debugFmt("the call to stop the server returned: ~p~n", [Ret]).
+stop() -> %Ret = not_done, 
+          Ret = gen_server:cast(?MODULE, {stop}),
+          ?debugFmt("the call to stop the server returned: ~p~n", [Ret]),
+          Ret.
 
 
 %% --------------------------------------------------------------------
@@ -207,12 +209,7 @@ handle_call({get_subscribers, AreaSpec}, _From, State) ->
 		end;
 
 handle_call({get_members, AreaSpec}, _From, State) ->
-        {reply, ets:lookup_element(State#state.areas_tid, AreaSpec, 2), State};
-
-
-handle_call({stop}, _From, State) ->
-%%     {reply, ok, State}.
-    {stop, shutdown, State}.
+        {reply, ets:lookup_element(State#state.areas_tid, AreaSpec, 2), State}.
 
 
 %% --------------------------------------------------------------------
@@ -235,7 +232,11 @@ handle_cast({remote_enter_area, ObjId, AreaSpec}, State) ->
 
 handle_cast({remote_leave_area, ObjId, AreaSpec}, State) ->
     do_area_remove_obj(State#state.areas_tid, AreaSpec, ObjId),
-    {noreply, State}.
+    {noreply, State};
+
+handle_cast({stop}, State) ->
+%%     {noreply, State}.
+    {stop, normal, State}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_info/2
@@ -252,7 +253,7 @@ handle_info(_Info, State) ->
 %% Description: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %% --------------------------------------------------------------------
-terminate(Reason, State) ->
+terminate(Reason, _State) ->
     ?debugFmt("terminating doe_ets server. Reason: ~p~n", [Reason]),
     ok.
 

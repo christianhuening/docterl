@@ -15,14 +15,19 @@ info_test_() ->
 internal_funcs_test_() -> 
     {setup,
      fun() ->
-             application:start(sasl),
+%%              application:start(sasl),
              ok
      end,
      fun(_PId) ->
-             application:stop(sasl),
+%%              application:stop(sasl),
              ok
      end,
-     fun(PId) -> [?_test(test_start_stop(PId))]
+     fun(PId) -> 
+             [?_test(test_start_stop(PId)),
+              ?_test(test_make_area(PId)),
+              ?_test(test_make_new_treeid(PId)),
+              ?_test(test_make_new_obj_id(PId))
+             ]
      end 
     }.
 
@@ -48,15 +53,6 @@ test_start_stop(_Foo) ->
 %% Test internal functions
 %% ====================================================================
 
-make_area_test_() -> 
-    { "test the computation of the area spec",
-      { setup,
-        fun fixStart/0,
-        fun fixStop/1,
-        fun(Args) -> [
-                      ?_test(test_make_area(Args))
-                     ] end }}.
-
 test_make_area(_Args) ->
     ?debugMsg("starting make_area_test"),
     TestCases = [
@@ -80,45 +76,27 @@ test_make_area(_Args) ->
     lists:all(fun do_make_area_test/1, TestCases).
 
     
-make_new_treeid_teAst_() -> 
-    { "test lookup of tree ids in table",
-      { setup,
-        fun fixStart/0,
-        fun fixStop/1,
-        fun(_Foo) -> [
-                      ?_test(
-                      begin
-                          ?debugMsg("starting make_new_treeid_test"),
-                          TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
-													% ?debugMsg("do first make_new_id"),
-                          ?assertEqual(1, doe_ets:make_new_id(TreesTId)),
-                          doe_ets:do_make_tree(TreesTId, []),
-                          ?assertEqual(2, doe_ets:make_new_id(TreesTId)),
-                          doe_ets:do_make_tree(TreesTId, []),
-                          ?assertEqual(3, doe_ets:make_new_id(TreesTId)),
-                          ets:delete(TreesTId)										
-                      end)
-                     ] end }}.
+test_make_new_treeid(_PId) -> 
+    ?debugMsg("starting make_new_treeid_test"),
+    TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
+    % ?debugMsg("do first make_new_id"),
+    ?assertEqual(1, doe_ets:make_new_id(TreesTId)),
+    doe_ets:do_make_tree(TreesTId, []),
+    ?assertEqual(2, doe_ets:make_new_id(TreesTId)),
+    doe_ets:do_make_tree(TreesTId, []),
+    ?assertEqual(3, doe_ets:make_new_id(TreesTId)),
+    ets:delete(TreesTId).
 
 
-make_new_new_teAst_() -> 
-{ "test lookup of new ids in table",
-  { setup,
-    fun fixStart/0,
-    fun fixStop/1,
-    fun(_Foo) -> [
-                  ?_test(
-                  begin
-                      ?debugMsg("starting make_new_new_test"),
-                      ObjsTId = ets:new(objs, [set]),
-                      ?assertEqual(1, doe_ets:make_new_id(ObjsTId)),
-                      doe_ets:do_make_obj(ObjsTId, [1]),
-                      ?assertEqual(2, doe_ets:make_new_id(ObjsTId)),
-                      doe_ets:do_make_obj(ObjsTId, [1]),
-                      ?assertEqual(3, doe_ets:make_new_id(ObjsTId)),
-                      ets:delete(ObjsTId)                                       
-                  end)
-                 ] end }}.
+test_make_new_obj_id(_PId) -> 
+    ?debugMsg("starting make_new_new_test"),
+    ObjsTId = ets:new(objs, [set]),
+    ?assertEqual(1, doe_ets:make_new_id(ObjsTId)),
+    doe_ets:do_make_obj(ObjsTId, [1]),
+    ?assertEqual(2, doe_ets:make_new_id(ObjsTId)),
+    doe_ets:do_make_obj(ObjsTId, [1]),
+    ?assertEqual(3, doe_ets:make_new_id(ObjsTId)),
+    ets:delete(ObjsTId).
 
 
 create_and_remove_obj_teAst_() -> 
