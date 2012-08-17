@@ -9,8 +9,16 @@ info_test_() ->
 start_app_test_() -> 
     { "start the application",
       { setup,
-        fun fixStart/0,
-        fun fixStop/1,
+        fun() ->
+                %% application:start(sasl),
+                ok
+        end, 
+        fun(_Pid) ->
+                application:stop(docterl_ets),
+                %% application:stop(sasl),
+                sleep(100),
+                ok
+        end,
         fun(_Foo) -> [
                       ?_test(
                       begin
@@ -20,15 +28,35 @@ start_app_test_() ->
                       end)
                      ] end }}.
 
-fixStart() ->
-    %% application:start(sasl),
-    ok.
+start_node_fixture_test_() ->
+    {Node, Host} = split_node(node()),    
+    S  = Node ++ "_slave",
+    RN = erlang:list_to_atom( S ++ "@" ++ Host),
 
-fixStop(_Pid) ->
-    application:stop(docterl_ets),
-    %% application:stop(sasl),
-    sleep(100),
-    ok.
+    { node, RN, { setup,    
+                  { spawn, RN }, 
+                  fun  start_node_test_setup/0,
+                  fun start_node_test_cleanup/1,
+                  [
+                   % w/out the list eunit doesn't run test_1 on remote node?
+                   fun start_node_test_1/0
+                  ]
+                }}.
+
+start_node_test_setup() ->
+     io:format(user, "setup is on: ~p~n", [ node() ]).
+
+start_node_test_cleanup(_) ->
+     io:format(user, "cleanup is on: ~p~n", [ node() ]).
+
+start_node_test_1() ->
+     io:format(user, "Where does this go: ~p~n", [ node() ]).
+
+split_node(Node) when is_atom(Node) ->
+    split_node(atom_to_list(Node), []).
+split_node([], UseAsHost )    -> { [], UseAsHost };
+split_node([ $@ | T ], Node ) -> { Node, T };
+split_node([ H | T ], Node )  -> split_node(T,  Node ++ [H] ).
 
 % sleep for number of miliseconds
 sleep(T) ->

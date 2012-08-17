@@ -49,7 +49,8 @@ test_remove_obj() ->
     docterl_ets:remove_obj(ObjId),
     ?assertMatch({error, unknown_id}, docterl_ets:get_obj(ObjId)),
     {ok, Members} = doe_ets:get_members(AreaSpec),
-    ?assertNot(lists:member(ObjId, Members)).
+    ?assertNot(lists:member(ObjId, Members)),
+    ?debugHere.
 
 %% _test_() -> 
 %%     { "",

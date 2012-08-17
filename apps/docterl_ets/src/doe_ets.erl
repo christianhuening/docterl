@@ -191,8 +191,11 @@ handle_call({remove_obj, ObjId}, From, State) ->
     handle_call({remove_obj, ObjId, AreaSpec}, From, State);
 
 handle_call({remove_obj, ObjId, AreaSpec}, _From, State) ->
-    do_area_remove_obj(State#state.areas_tid, AreaSpec, ObjId),
-    {reply, {ok, AreaSpec}, State};
+    case (catch do_area_remove_obj(State#state.areas_tid, AreaSpec, ObjId)) of
+        true -> ets:delete(State#state.objs_tid, ObjId), 
+                {reply, {ok, AreaSpec}, State};        
+        {error, Reason} -> {reply, {error, Reason}, State}
+        end;
 
 handle_call({update_position, TreeId, ObjId, NewPos, NewBBSize}, _From, State) ->
 		case (catch do_update_position(State, TreeId, ObjId, NewPos, NewBBSize)) of
@@ -218,12 +221,12 @@ handle_call({get_subscribers, AreaSpec}, _From, State) ->
 		end;
 
 handle_call({get_members, AreaSpec}, _From, State) ->
-        {reply, ets:lookup_element(State#state.areas_tid, AreaSpec, 2), State};
+        {reply, {ok, ets:lookup_element(State#state.areas_tid, AreaSpec, 2)}, State};
 
 handle_call({get_obj, ObjId}, _From, State) ->
         case (catch ets:lookup(State#state.objs_tid, ObjId)) of
             [{ObjId, AreaSpec}] -> {reply, {ok, AreaSpec}, State};
-            [] -> {reply, {error, unkown_id}, State};
+            [] -> {reply, {error, unknown_id}, State};
             Other -> {reply, {error, Other}}
         end.
 
@@ -403,16 +406,14 @@ do_make_obj(ObjsTId, AreaSpec) ->
 %% @throws invalid_area if the AreaSpec cannot be found
 %% 
 -spec do_area_remove_obj(AreasTId::integer(), AreasSpec::area_spec(), ObjId::pos_integer()) ->
-					ok 
+					ok.
 do_area_remove_obj(AreasTId, AreaSpec, ObjId) ->
     case ets:lookup(AreasTId, AreaSpec) of
         [{AreaSpec, ObjList, _Subscribers}] ->
             ets:update_element(AreasTId, AreaSpec, {2, lists:delete(ObjId, ObjList)}),
             true;
-        [] -> throw 
-    end,
-     = 
-    .
+        [] -> throw({error, invalid_spec})
+    end.
     
 do_area_add_obj(AreasTId, AreaSpec, ObjId) ->
 		case ets:lookup(AreasTId, AreaSpec) of

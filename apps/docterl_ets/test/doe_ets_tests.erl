@@ -31,6 +31,25 @@ internal_funcs_test_() ->
      end 
     }.
 
+internal_API_test_() -> 
+    {setup,
+     fun() ->
+             %% application:start(sasl),
+             _StartRet = doe_ets:start_link(),
+             %% ?debugFmt("StartRet: ~p~n", [StartRet]),
+             ok
+     end,
+     fun(_PId) ->
+             %% application:stop(sasl),
+             doe_ets:stop(),
+             sleep(100),
+             ok
+     end,
+     fun(_Args) -> [?_test(test_create_and_remove_obj()),
+                   ?_test(test_create_and_get_obj())]              
+     end 
+    }.
+
 simple_benchmark_test_() -> 
     {setup,
      fun() ->
@@ -45,8 +64,7 @@ simple_benchmark_test_() ->
              sleep(100),
              ok
      end,
-     fun(Args) -> [?_test(test_create_and_remove_obj(Args)),
-                   ?_test(test_run_a_thousand_updates(Args)),
+     fun(Args) -> [?_test(test_run_a_thousand_updates(Args)),
                    ?_test(test_run_a_thousand_different_updates(Args))]              
      end 
     }.
@@ -108,7 +126,7 @@ test_make_new_treeid(_PId) ->
 
 
 test_make_new_obj_id(_PId) -> 
-    ?debugMsg("starting make_new_new_test"),
+    ?debugMsg("starting make_new_new test"),
     ObjsTId = ets:new(objs, [set]),
     ?assertEqual(1, doe_ets:make_new_id(ObjsTId)),
     doe_ets:do_make_obj(ObjsTId, [1]),
@@ -118,8 +136,8 @@ test_make_new_obj_id(_PId) ->
     ets:delete(ObjsTId).
 
 
-test_create_and_remove_obj(_PId) -> 
-    ?debugMsg("starting create_and_remove_obj_test"),
+test_create_and_remove_obj() -> 
+    ?debugMsg("starting create_and_remove_obj test"),
     {ok, TreeId} = doe_ets:new_tree([]),
     {ok, ObjId, _Spec1} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
     % ?debugFmt("Spec1: ~p~n", [Spec1]),
@@ -129,6 +147,14 @@ test_create_and_remove_obj(_PId) ->
     % ?debugFmt("Spec3: ~p~n", [Spec3]),
     doe_ets:remove_obj(ObjId),
     ?debugMsg("end create_and_remove_obj_test").
+
+test_create_and_get_obj() ->
+    ?debugMsg("starting create_and_remove_obj test"),
+    {ok, TreeId} = doe_ets:new_tree([]),
+    {ok, ObjId, AreaSpec} = doe_ets:new_obj(TreeId, {0.5, 0.5, 0.5}, {0.1, 0.1, 0.1}),
+    ?assertMatch({ok, _List}, doe_ets:get_members(AreaSpec)),
+    {ok, Members} = doe_ets:get_members(AreaSpec),
+    ?assert(lists:member(ObjId, Members)).
 
 
 test_run_a_thousand_updates(_PId) ->
