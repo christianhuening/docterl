@@ -31,6 +31,25 @@ internal_funcs_test_() ->
      end 
     }.
 
+simple_benchmark_test_() -> 
+    {setup,
+     fun() ->
+             %% application:start(sasl),
+             _StartRet = doe_ets:start_link(),
+             %% ?debugFmt("StartRet: ~p~n", [StartRet]),
+             ok
+     end,
+     fun(_PId) ->
+             %% application:stop(sasl),
+             doe_ets:stop(),
+             sleep(100),
+             ok
+     end,
+     fun(Args) -> [?_test(test_create_and_remove_obj(Args)),
+                   ?_test(test_run_a_thousand_updates(Args)),
+                   ?_test(test_run_a_thousand_different_updates(Args))]              
+     end 
+    }.
 
 %% ====================================================================
 %% Test API functions
@@ -99,66 +118,39 @@ test_make_new_obj_id(_PId) ->
     ets:delete(ObjsTId).
 
 
-create_and_remove_obj_teAst_() -> 
-    {"create and remove an object",
-     { setup,
-       fun fixStartServer/0,
-       fun fixStopServer/1,
-       fun(_Foo) -> [
-                     ?_test(
-                     begin
-                         ?debugMsg("starting create_and_remove_obj_test"),
-                         {ok, TreeId} = doe_ets:new_tree([]),
-                         {ok, ObjId, _Spec1} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
-                         % ?debugFmt("Spec1: ~p~n", [Spec1]),
-                         _Spec2 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.1, 0.1}),
-                         % ?debugFmt("Spec2: ~p~n", [Spec2]),
-                         _Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
-                         % ?debugFmt("Spec3: ~p~n", [Spec3]),
-                         doe_ets:remove_obj(TreeId, ObjId),
-                         ?debugMsg("end create_and_remove_obj_test")
-                     end)
-                    ] end }}.
+test_create_and_remove_obj(_PId) -> 
+    ?debugMsg("starting create_and_remove_obj_test"),
+    {ok, TreeId} = doe_ets:new_tree([]),
+    {ok, ObjId, _Spec1} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
+    % ?debugFmt("Spec1: ~p~n", [Spec1]),
+    _Spec2 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.1, 0.1}),
+    % ?debugFmt("Spec2: ~p~n", [Spec2]),
+    _Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
+    % ?debugFmt("Spec3: ~p~n", [Spec3]),
+    doe_ets:remove_obj(TreeId, ObjId),
+    ?debugMsg("end create_and_remove_obj_test").
 
 
-run_a_thousand_updates_teAst_() ->
-    {"run update multiple times and measure runtim",
-     { setup,
-       fun fixStartServer/0,
-       fun fixStopServer/1,
-       fun(_Foo) -> [
-                     ?_test(
-                     begin
-                         ?debugMsg("starting run_a_throusand_updates_test"),
-                         {ok, TreeId} = doe_ets:new_tree([]),
-                         {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
-                         test_avg(doe_ets_tests, 
-                                  do_update, 
-                                  [TreeId, ObjId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}], 
-                                  10000),
-                         doe_ets:remove_obj(TreeId, ObjId)
-                     end)
-                    ] end }}.
+test_run_a_thousand_updates(_PId) ->
+    ?debugMsg("starting run_a_throusand_updates_test"),
+    {ok, TreeId} = doe_ets:new_tree([]),
+    {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
+    test_avg(doe_ets_tests, 
+             do_update, 
+             [TreeId, ObjId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}], 
+             10000),
+    doe_ets:remove_obj(TreeId, ObjId).
 
 
-run_a_thousand_different_updates_teAst_() ->
-    {"run update multiple times and measure runtim",
-     { setup,
-       fun fixStartServer/0,
-       fun fixStopServer/1,
-       fun(_Foo) -> [
-                     ?_test(
-                     begin
-                          ?debugMsg("starting run_a_thousand_different_updates_test"),
-                         {ok, TreeId} = doe_ets:new_tree([]),
-                         {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}),
-                         test_avg(doe_ets_tests, 
-                                  do_update, 
-                                  [TreeId, ObjId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}], 
-                                  10000),
-                         doe_ets:remove_obj(TreeId, ObjId)
-                     end)
-                    ] end }}.
+test_run_a_thousand_different_updates(_PId) ->
+    ?debugMsg("starting run_a_thousand_different_updates_test"),
+    {ok, TreeId} = doe_ets:new_tree([]),
+    {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}),
+    test_avg(doe_ets_tests, 
+             do_update, 
+             [TreeId, ObjId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}], 
+             10000),
+    doe_ets:remove_obj(TreeId, ObjId).
 
 
 %% ====================================================================
@@ -199,27 +191,6 @@ test_loop(_M, _F, _A, 0, List) ->
 test_loop(M, F, A, N, List) ->
     {T, _Result} = timer:tc(M, F, [N|A]),
     test_loop(M, F, A, N - 1, [T|List]).
-
-
-fixStart() ->
-%%  	application:start(sasl),
-  ok.
-
-fixStop(_Pid) ->
-%%  	application:stop(sasl),
-	ok.
-
-fixStartServer() ->
-  %% application:start(sasl),
-    StartRet = doe_ets:start_link(),
-    ?debugFmt("StartRet: ~p~n", [StartRet]),
-  ok.
-
-fixStopServer(_Pid) ->
-  %% application:stop(sasl),
-    doe_ets:stop(),
-    sleep(100),
-    ok.
 
 %% sleep for number of miliseconds
 sleep(T) ->
