@@ -127,7 +127,7 @@ test_create_and_remove_obj(_PId) ->
     % ?debugFmt("Spec2: ~p~n", [Spec2]),
     _Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
     % ?debugFmt("Spec3: ~p~n", [Spec3]),
-    doe_ets:remove_obj(TreeId, ObjId),
+    doe_ets:remove_obj(ObjId),
     ?debugMsg("end create_and_remove_obj_test").
 
 
@@ -139,7 +139,7 @@ test_run_a_thousand_updates(_PId) ->
              do_update, 
              [TreeId, ObjId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}], 
              10000),
-    doe_ets:remove_obj(TreeId, ObjId).
+    doe_ets:remove_obj(ObjId).
 
 
 test_run_a_thousand_different_updates(_PId) ->
@@ -150,7 +150,7 @@ test_run_a_thousand_different_updates(_PId) ->
              do_update, 
              [TreeId, ObjId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}], 
              10000),
-    doe_ets:remove_obj(TreeId, ObjId).
+    doe_ets:remove_obj(ObjId).
 
 
 %% ====================================================================

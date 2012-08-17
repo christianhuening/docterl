@@ -17,12 +17,12 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -type vec_3d() :: {float(), float(), float()}.
--type areas_spec() :: list(integer()).
+-type area_spec() :: list(pos_integer()).
 
 %% --------------------------------------------------------------------
 %% External exports
--export([new_tree/1, add_obj/3, remove_obj/2, 
-         update_position/4]).
+-export([new_tree/1, add_obj/3, remove_obj/1, 
+         update_position/4, get_obj/1]).
 
 
 %% ====================================================================
@@ -59,7 +59,7 @@ new_tree(Options) ->
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 -spec add_obj(TreeId::pos_integer(), Position::vec_3d(), BBSize::vec_3d()) -> 
-          {ok, ObjId::pos_integer(), AreaSpec::list()} | {error, term()}.
+          {ok, ObjId::pos_integer(), AreaSpec::area_spec()} | {error, term()}.
 add_obj(TreeId, Position, BBSize) -> 
     case  (catch doe_ets:new_obj(TreeId, Position, BBSize)) of
         {ok, ObjId, AreaSpec} -> doe_event_mgr:add_obj(ObjId, AreaSpec),
@@ -68,11 +68,12 @@ add_obj(TreeId, Position, BBSize) ->
         Other -> {error, {unknown_result, Other}} 
     end.
 
--spec remove_obj(TreeId::pos_integer(), ObjId::pos_integer()) -> 
-          ok | {error, unkown_tree} | {error, invalid_obj} | {error, Reason::term()}.
-remove_obj(TreeId, ObjId) ->
-    case (catch doe_ets:remove_obj(TreeId, ObjId)) of
-        ok -> doe_event_mgr:remove_obj(TreeId, ObjId),
+-spec remove_obj(ObjId::pos_integer()) -> 
+          ok | {error, unkown_tree} | {error, invalid_id} | {error, Reason::term()}.
+remove_obj(ObjId) ->
+    case (catch doe_ets:remove_obj(ObjId)) of
+        {ok, AreaSpec} -> doe_event_mgr:remove_obj(ObjId, AreaSpec),
+              ?debugFmt("object ~p removed", [ObjId]),
               ok;
         {error, Reason} -> {error, Reason};
         Other -> {error, {unknown_result, Other}} 
@@ -91,7 +92,7 @@ remove_obj(TreeId, ObjId) ->
 %%
 
 -spec update_position(TreeId::pos_integer(), ObjId::pos_integer(), 
-                      NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, AreaSpec::list()} | {error, term()}.
+                      NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, AreaSpec::area_spec()} | {error, term()}.
 update_position(TreeId, ObjId, NewPos, NewBBSize) -> 
     case (catch doe_ets:update_position(TreeId, ObjId, NewPos, NewBBSize)) of
         {ok, AreaSpec} ->   % the area was not changed. 
@@ -104,4 +105,9 @@ update_position(TreeId, ObjId, NewPos, NewBBSize) ->
         {error, Reason} -> {error, Reason};
         Other -> {error, {unknown_result, Other}} 
     end.
+
+
+-spec get_obj(ObjId::pos_integer()) -> {ok, AreaSpec::area_spec()} | {error, unknown_id} | {error, term()}.
+get_obj(ObjId) -> doe_ets:get_obj(ObjId).
+
 

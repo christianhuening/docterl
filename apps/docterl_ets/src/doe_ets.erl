@@ -23,15 +23,15 @@
 -define(MAX_DEPTH_DEFAULT, 10).
 
 -type vec_3d() :: {float(), float(), float()}.
--type areas_spec() :: list(integer()).
+-type area_spec() :: list(integer()).
 
 -record(state, {trees_tid, areas_tid, objs_tid}).
 
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/0, stop/0, new_tree/1, new_tree/2, add_obj/2, new_obj/3, remove_obj/2,
-         update_position/4, leave_area/2, enter_area/2, get_members/1]).
+-export([start_link/0, stop/0, new_tree/1, new_tree/2, add_obj/2, new_obj/3, get_obj/1, 
+         remove_obj/1, update_position/4, leave_area/2, enter_area/2, get_members/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -51,7 +51,7 @@
 %% --------------------------------------------------------------------
 -spec start_link() -> {ok, Pid::pid()} | ignore | {error, Reason::term()}.
 start_link() -> 
-    ?debugMsg("starting doe_ets server"),
+    % ?debugMsg("starting doe_ets server"),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 	
 %% --------------------------------------------------------------------
@@ -59,9 +59,8 @@ start_link() ->
 %% @end
 %% --------------------------------------------------------------------
 -spec stop() -> ok.
-stop() -> %Ret = not_done, 
-          Ret = gen_server:cast(?MODULE, {stop}),
-          ?debugFmt("the call to stop the server returned: ~p~n", [Ret]),
+stop() -> Ret = gen_server:cast(?MODULE, {stop}),
+          % ?debugFmt("the call to stop the server returned: ~p~n", [Ret]),
           Ret.
 
 
@@ -80,28 +79,6 @@ stop() -> %Ret = not_done,
 -spec new_tree(Options::list()) -> {ok, pos_integer()} | {error | term()}.
 new_tree(Options) -> gen_server:call(?MODULE, {new_tree, Options}).
 
-%% should only be called internally by doe_event_mgr
--spec new_tree(TreeId::pos_integer(), Options::list()) -> {ok, pos_integer()} | {error | term()}.
-new_tree(TreeId, Options) -> gen_server:call(?MODULE, {remote_new_tree, TreeId, Options}).
-
-%% should only be called internally by doe_event_mgr
--spec leave_area(ObjId::pos_integer(), AreaSpec::list()) ->
-          ok | {error, term()}.
-leave_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_leave_area, ObjId, AreaSpec}).
-
-%% should only be called internally by doe_event_mgr
--spec enter_area(ObjId::pos_integer(), AreaSpec::list()) ->
-          ok | {error, term()}.
-enter_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_enter_area, ObjId, AreaSpec}).
-
-
-%% should only be called internally by doe_event_mgr
--spec add_obj(ObjId::pos_integer(), AreaSpec::list()) -> 
-          ok | {error, term()}.
-add_obj(ObjId, AreaSpec) -> 
-    gen_server:call(?MODULE, {remote_add_obj, ObjId, AreaSpec}).
-
-
 %% --------------------------------------------------------------------
 %% Function: new_obj/3
 %% Description: add an object to a tree. 
@@ -116,19 +93,51 @@ add_obj(ObjId, AreaSpec) ->
 new_obj(TreeId, Position, BBSize) ->
     gen_server:call(?MODULE, {new_obj, TreeId, Position, BBSize}).
 
--spec remove_obj(TreeId::pos_integer(), ObjId::pos_integer()) -> 
-          ok | {error, unkown_tree} | {error, invalid_obj} | {error, Reason::term()}.
-remove_obj(TreeId, ObjId) ->
-    gen_server:call(?MODULE, {remove_obj, TreeId, ObjId}).
-                 
+-spec get_obj(ObjId::pos_integer()) -> 
+          {ok, AreaSpec::area_spec()} | {error, unknown_id} | {error, Reason::term()}.
+get_obj(ObjId) -> gen_server:call(?MODULE, {get_obj, ObjId}).
+
+%% the area spec is returned for use by the event mechanism
+-spec remove_obj(ObjId::pos_integer()) -> 
+          {ok, AreaSpec::area_spec()} | {error, invalid_id} | {error, Reason::term()}.
+remove_obj(ObjId) ->
+    gen_server:call(?MODULE, {remove_obj, ObjId}).
+
 -spec update_position(TreeId::pos_integer(), ObjId::pos_integer(), 
-					  NewPos::vec_3d(), NewBBSize::vec_3d()) -> 
+                      NewPos::vec_3d(), NewBBSize::vec_3d()) -> 
           {ok, AreaSpec::list()} | {ok, OldAreaSpec::list(), NewAreaSpec::list()} | {error, term()}.
 update_position(TreeId, ObjId, NewPos, NewBBSize) -> 
     gen_server:call(?MODULE, {update_position, TreeId, ObjId, NewPos, NewBBSize}).
 
 -spec get_members(AreaSpec::list()) -> {ok, Members::list()} | {error, term()}.
 get_members(AreaSpec) -> gen_server:call(?MODULE, {get_members, AreaSpec}).
+
+
+%% should only be called internally by doe_event_mgr
+-spec new_tree(TreeId::pos_integer(), Options::list()) -> {ok, pos_integer()} | {error | term()}.
+new_tree(TreeId, Options) -> gen_server:call(?MODULE, {remote_new_tree, TreeId, Options}).
+
+%% should only be called internally by doe_event_mgr
+-spec leave_area(ObjId::pos_integer(), AreaSpec::list()) ->
+          ok | {error, term()}.
+leave_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_leave_area, ObjId, AreaSpec}).
+
+%% should only be called internally by doe_event_mgr
+-spec enter_area(ObjId::pos_integer(), AreaSpec::list()) ->
+          ok | {error, term()}.
+enter_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_enter_area, ObjId, AreaSpec}).
+
+%% should only be called internally by doe_event_mgr
+-spec add_obj(ObjId::pos_integer(), AreaSpec::list()) -> 
+          ok | {error, term()}.
+add_obj(ObjId, AreaSpec) -> 
+    gen_server:call(?MODULE, {remote_add_obj, ObjId, AreaSpec}).
+
+%% should only be called internally by doe_event_mgr
+-spec remove_obj(ObjId::pos_integer(), AreaSpec::area_spec()) -> 
+          ok | {error, invalid_id} | {error, Reason::term()}.
+remove_obj(ObjId, AreaSpec) ->
+    gen_server:call(?MODULE, {remove_obj, ObjId, AreaSpec}).
 
 
 %% ====================================================================
@@ -171,19 +180,19 @@ handle_call({new_obj, TreeId, Position, BBSize}, _From, State) ->
     do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
     {reply, {ok, ObjId, AreaSpec}, State};
 
-% TODO: assert that tree id has not been used before
+% TODO: assert that obj id has not been used before
 handle_call({remote_new_Obj, ObjId, AreaSpec}, _From, State) ->
       ets:insert(State#state.objs_tid, {ObjId, AreaSpec}),
       do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
       {reply, ok, State};
 
-% TODO: ensure that the object was actually placed in this tree. 
-handle_call({remove_obj, _TreeId, ObjId}, _From, State) ->
+handle_call({remove_obj, ObjId}, From, State) ->
     [{ObjId, AreaSpec}] = ets:lookup(State#state.objs_tid, ObjId),
-    [{AreaSpec, ObjList, _Subscribers}] = ets:lookup(State#state.areas_tid, AreaSpec),
+    handle_call({remove_obj, ObjId, AreaSpec}, From, State);
+
+handle_call({remove_obj, ObjId, AreaSpec}, _From, State) ->
     do_area_remove_obj(State#state.areas_tid, AreaSpec, ObjId),
-    ets:update_element(State#state.areas_tid, AreaSpec, {2, lists:delete(ObjId, ObjList)}),
-    {reply, ok, State};
+    {reply, {ok, AreaSpec}, State};
 
 handle_call({update_position, TreeId, ObjId, NewPos, NewBBSize}, _From, State) ->
 		case (catch do_update_position(State, TreeId, ObjId, NewPos, NewBBSize)) of
@@ -209,7 +218,14 @@ handle_call({get_subscribers, AreaSpec}, _From, State) ->
 		end;
 
 handle_call({get_members, AreaSpec}, _From, State) ->
-        {reply, ets:lookup_element(State#state.areas_tid, AreaSpec, 2), State}.
+        {reply, ets:lookup_element(State#state.areas_tid, AreaSpec, 2), State};
+
+handle_call({get_obj, ObjId}, _From, State) ->
+        case (catch ets:lookup(State#state.objs_tid, ObjId)) of
+            [{ObjId, AreaSpec}] -> {reply, {ok, AreaSpec}, State};
+            [] -> {reply, {error, unkown_id}, State};
+            Other -> {reply, {error, Other}}
+        end.
 
 
 %% --------------------------------------------------------------------
@@ -253,8 +269,8 @@ handle_info(_Info, State) ->
 %% Description: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %% --------------------------------------------------------------------
-terminate(Reason, _State) ->
-    ?debugFmt("terminating doe_ets server. Reason: ~p~n", [Reason]),
+terminate(_Reason, _State) ->
+    %?debugFmt("terminating doe_ets server. Reason: ~p~n", [Reason]),
     ok.
 
 %% --------------------------------------------------------------------
@@ -384,12 +400,19 @@ do_make_obj(ObjsTId, AreaSpec) ->
 
 %%
 %% remove single object entry from the list of objects in area
+%% @throws invalid_area if the AreaSpec cannot be found
 %% 
--spec do_area_remove_obj(AreasTId::integer(), AreasSpec::areas_spec(), ObjId::pos_integer()) ->
-					true | false.
+-spec do_area_remove_obj(AreasTId::integer(), AreasSpec::area_spec(), ObjId::pos_integer()) ->
+					ok 
 do_area_remove_obj(AreasTId, AreaSpec, ObjId) ->
-    [{AreaSpec, ObjList, _Subscribers}] = ets:lookup(AreasTId, AreaSpec),
-    ets:update_element(AreasTId, AreaSpec, {2, lists:delete(ObjId, ObjList)}).
+    case ets:lookup(AreasTId, AreaSpec) of
+        [{AreaSpec, ObjList, _Subscribers}] ->
+            ets:update_element(AreasTId, AreaSpec, {2, lists:delete(ObjId, ObjList)}),
+            true;
+        [] -> throw 
+    end,
+     = 
+    .
     
 do_area_add_obj(AreasTId, AreaSpec, ObjId) ->
 		case ets:lookup(AreasTId, AreaSpec) of

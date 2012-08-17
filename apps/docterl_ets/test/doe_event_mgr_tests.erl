@@ -88,13 +88,13 @@ event_update_multi_area_test_() ->
                      ] end }}.
 
 fixStart() ->
-    %% 	application:start(sasl),
+%%     application:start(sasl),
     doe_ets:start_link(),
     doe_event_mgr:start_link(),    
     ok.
 
 fixStop(_Pid) ->
-    %% 	application:stop(sasl),
+%%     application:stop(sasl),
     doe_ets:stop(),
     doe_event_mgr:stop(),
     ok.

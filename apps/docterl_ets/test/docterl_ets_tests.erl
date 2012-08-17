@@ -26,36 +26,30 @@ basic_api_test_() ->
               ok
       end,
       fun(_Args) -> [?_test(test_new_tree()),
-                     ?_test(test_new_obj())] 
+                     ?_test(test_new_obj()),
+                     ?_test(test_remove_obj())] 
               end
       }.
 
 test_new_tree() -> 
-    ?assert({ok, _TreeId} = docterl_ets:new_tree([])).
+    ?assertMatch({ok, _TreeId}, docterl_ets:new_tree([])).
 
 test_new_obj() -> 
     Pos = {0.1, 0.1, 0.1},
     Size = {0.1, 0.1, 0.1},
     {ok, TreeId} = docterl_ets:new_tree([]),
-    {ok, ObjId, _AreaSpec} = docterl_ets:add_obj(TreeId, Pos, Size),
-    ?assertMatch({ObjId, _}, docterl_ets:get_obj(ObjId)).
+    {ok, ObjId, AreaSpec} = docterl_ets:add_obj(TreeId, Pos, Size),
+    ?assertMatch({ok, AreaSpec}, docterl_ets:get_obj(ObjId)).
 
 
-%% remove_obj_test_() -> 
-%%     { "remove an object",
-%%       { setup,
-%%         fun fixStart/0,
-%%         fun fixStop/1,
-%%         fun(_Foo) -> [
-%%                       ?_test(
-%%                       begin
-%%                           {ok, TreeId} = docterl_ets:new_tree([]),
-%%                           {ok, ObjId, AreaSpec} = docterl_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
-%%                           docterl_ets:remove_obj(TreeId, ObjId),
-%%                           {ok, Members} = doe_ets:get_members(AreaSpec),
-%%                           ?assertNot(lists:member(ObjId, Members))
-%%                       end)
-%%                      ] end }}.
+test_remove_obj() -> 
+    {ok, TreeId} = docterl_ets:new_tree([]),
+    {ok, ObjId, AreaSpec} = docterl_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
+    ?assertMatch({ok, AreaSpec}, docterl_ets:get_obj(ObjId)),
+    docterl_ets:remove_obj(ObjId),
+    ?assertMatch({error, unknown_id}, docterl_ets:get_obj(ObjId)),
+    {ok, Members} = doe_ets:get_members(AreaSpec),
+    ?assertNot(lists:member(ObjId, Members)).
 
 %% _test_() -> 
 %%     { "",
@@ -69,19 +63,6 @@ test_new_obj() ->
 %%                           {ok, _ObjId, _AreaSpec} = docterl_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1})
 %%                       end)
 %%                      ] end }}.
-
-fixStart() ->
-    %%  application:start(sasl),
-    doe_ets:start_link(),
-    doe_event_mgr:start_link(),    
-    ok.
-
-fixStop(_Pid) ->
-    %%  application:stop(sasl),
-    doe_ets:stop(),
-    doe_event_mgr:stop(),
-    sleep(100),
-    ok.
 
 %% sleep for number of miliseconds
 sleep(T) ->

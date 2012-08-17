@@ -22,7 +22,7 @@
 %% External exports
 -export([start_link/0, stop/0, add_handler/2, delete_handler/2, 
          new_tree/2, subscribe/1, unsubscribe/1, 
-         add_obj/2, update_area/3, update_position/4]).
+         add_obj/2, update_area/3, update_position/4, remove_obj/2]).
 
 %% ====================================================================
 %% External functions
@@ -107,6 +107,17 @@ update_position(ObjId, AreaSpec, NewPos, NewBBSize) ->
               end, 
               Subscribers).
 
+
+remove_obj(ObjId, AreaSpec) -> 
+    % notify the local event handler first
+    gen_event:notify(?SERVER, {local_remove_obj, ObjId, AreaSpec}),
+    Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
+    lists:map(fun(Sub) -> 
+                      gen_event:notify({Sub, ?SERVER}, 
+                                       {remove_obj, ObjId, AreaSpec}) 
+              end, 
+              Subscribers).
+    
 
 %% --------------------------------------------------------------------
 %%% Internal functions
