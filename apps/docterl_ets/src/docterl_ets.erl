@@ -16,13 +16,12 @@
 %% --------------------------------------------------------------------
 -include_lib("eunit/include/eunit.hrl").
 
--type vec_3d() :: {float(), float(), float()}.
--type area_spec() :: list(pos_integer()).
+-include("../include/docterl.hrl").
 
 %% --------------------------------------------------------------------
 %% External exports
 -export([new_tree/1, add_obj/3, remove_obj/1, 
-         update_position/4, get_obj/1]).
+         update_position/4, get_obj/1, add_handler/1]).
 
 
 %% ====================================================================
@@ -109,5 +108,9 @@ update_position(TreeId, ObjId, NewPos, NewBBSize) ->
 
 -spec get_obj(ObjId::pos_integer()) -> {ok, AreaSpec::area_spec()} | {error, unknown_id} | {error, term()}.
 get_obj(ObjId) -> doe_ets:get_obj(ObjId).
+
+
+-spec add_handler(Handler::atom()) -> ok | term().
+add_handler(Handler) -> doe_event_mgr:add_handler(Handler, []).
 
 

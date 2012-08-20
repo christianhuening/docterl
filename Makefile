@@ -3,11 +3,28 @@
 #
 NODENAMES=server_a server_b
 
+.PHONY: deps doc
+
+all: deps compile
 #all: compile unit-test dist-test
-all: dist-test
 
 compile:
 	./rebar compile
+
+deps:
+	./rebar get-deps
+
+clean:
+	./rebar clean
+
+distclean: clean
+	./rebar delete-deps
+
+dialyzer: compile
+	@dialyzer -Wno_return -c ebin
+
+doc :
+	@./rebar doc skip_deps=true
 
 unit-test:
 	./rebar eunit

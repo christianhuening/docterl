@@ -1,7 +1,7 @@
-%{node, server_a, 'server_a@flar.informatik.haw-hamburg.de'}.
-%{node, server_b, 'server_b@flar.informatik.haw-hamburg.de'}.
-{node, server_a, 'server_a@ubuntu.harper-hall.de'}.
-{node, server_b, 'server_b@ubuntu.harper-hall.de'}.
+{node, server_a, 'server_a@flar.informatik.haw-hamburg.de'}.
+{node, server_b, 'server_b@flar.informatik.haw-hamburg.de'}.
+%{node, server_a, 'server_a@ubuntu.harper-hall.de'}.
+%{node, server_b, 'server_b@ubuntu.harper-hall.de'}.
 
 {alias, main, "."}.
 %{alias, server_a, "./test_data/server_a"}.
