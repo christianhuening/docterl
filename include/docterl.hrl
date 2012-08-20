@@ -10,7 +10,8 @@
 -type vec_3d() :: {float(), float(), float()}.
 -type area_spec() :: list(pos_integer()).
 
--type identifier() :: pos_integer().
+-type tree_id() :: pos_integer().
+-type obj_id() :: pos_integer().
 
 
 

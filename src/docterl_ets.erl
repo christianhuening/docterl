@@ -40,7 +40,7 @@
 %% Returns: {ok, TreeId}          |
 %%          {error, Reason}
 %% --------------------------------------------------------------------
--spec new_tree(Options::list()) -> {ok, pos_integer()} | {error | term()}.
+-spec new_tree(Options::list()) -> {ok, tree_id()} | {error | term()}.
 new_tree(Options) -> 
     case (catch doe_ets:new_tree(Options)) of
         {ok, TreeId} -> doe_event_mgr:new_tree(TreeId, Options), 
