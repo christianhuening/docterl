@@ -80,14 +80,18 @@ remove_obj(ObjId) ->
                  
 
 %%
+%% @doc update the position of an object.
+%%
 %% there are a number of optimisations here:
-%%   - if the content lists did not change, to not send the area updates
-%%   - movement event and area change could be combined into one event, at
-%%     least for transmitting over the network.
+%%  <ul>
+%%   <li> if the content lists did not change, to not send the area updates</li>
+%%   <li> movement event and area change could be combined into one event, at
+%%     least for transmitting over the network.</li>
+%%   </ul>
 %%
 %% Both optimisations are not used right now.
 %%
-%% TODO: check for position interval ( 0 < pos < 1.0 ) and size
+%% TODO: check for position interval ( <code>0 &lt; pos &lt; 1.0</code> ) and size
 %%
 
 -spec update_position(TreeId::pos_integer(), ObjId::pos_integer(), 

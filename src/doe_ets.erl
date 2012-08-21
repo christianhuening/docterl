@@ -1,17 +1,18 @@
-%%% -------------------------------------------------------------------
-%%% @author Lutz Behnke <lutz.behnke@informatik.haw-hamburg.de>
-%%% @copyright Lutz Behnke
-%%% @doc
-%%%  maintain actual octree data structure (or ets tables in 
-%%%               this case.) This module will not publish the changes to other 
-%%%               nodes!
+
+%%% @doc maintain actual octree data structure.
+%%%
+%%%   (or ets tables in this case.) This module will not publish 
+%%%    the changes to other nodes!
 %%%  <p>
 %%%  Important note: The 'objs' table does not hold any information 
 %%%  about the objects managed by this octree, beyond the position.
 %%%  If there is additional data to be maintained, this needs to be done
 %%%  by the application using this code in a separate table/database
-%%%  @end
-%%% -------------------------------------------------------------------
+%%%  </p>
+%%%
+%%% @author Lutz Behnke <lutz.behnke@informatik.haw-hamburg.de>
+%%% @copyright Lutz Behnke
+%%%
 -module(doe_ets).
 
 -behaviour(gen_server).
@@ -402,9 +403,11 @@ do_make_obj(ObjsTId, AreaSpec) ->
     NewId.
 
 %%
-%% remove single object entry from the list of objects in area
-%% @throws invalid_area if the AreaSpec cannot be found
-%% 
+%% @doc remove single object entry from the list of objects in area.
+%%    will throw invalid_area if the AreaSpec cannot be found.
+%%
+%% @throws invalid_area
+%% @end
 -spec do_area_remove_obj(AreasTId::integer(), AreasSpec::area_spec(), ObjId::pos_integer()) ->
 					ok.
 do_area_remove_obj(AreasTId, AreaSpec, ObjId) ->
