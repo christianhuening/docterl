@@ -47,8 +47,8 @@ handle_event({new_tree, TreeID, Options}, State) ->
      doe_ets:new_tree(TreeID, Options),
     {ok, State};
 
-handle_event({new_obj, ObjId, AreaSpec}, State) ->
-    doe_ets:add_obj(ObjId, AreaSpec),
+handle_event({remote_add_obj, ObjId, AreaSpec, Extra}, State) ->
+    doe_ets:remote_add_obj(ObjId, AreaSpec, Extra),
     {ok, State};
 
 handle_event({remove_obj, ObjId, AreaSpec}, State) ->
@@ -70,7 +70,7 @@ handle_event({update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, State) -
 
 handle_event({local_remove_obj, _ObjId, _AreaSpec}, State) -> {ok, State};
 handle_event({local_new_tree, _TreeId, _Options}, State) -> {ok, State};
-handle_event({local_new_obj, _ObjId, _AreaSpec}, State) ->{ok, State};
+handle_event({local_new_obj, _ObjId, _AreaSpec, _Extra}, State) ->{ok, State};
 handle_event({local_leave_area, _ObjId, _AreaSpec}, State) -> {ok, State};
 handle_event({local_enter_area, _ObjId, _AreaSpec}, State) -> {ok, State};
 handle_event({local_update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, State) -> {ok, State}.

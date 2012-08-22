@@ -22,7 +22,7 @@
 %% External exports
 -export([start_link/0, stop/0, add_handler/2, delete_handler/2, 
          new_tree/2, subscribe/1, unsubscribe/1, 
-         add_obj/2, update_area/3, update_position/4, remove_obj/2]).
+         add_obj/2, add_obj/3, update_area/3, update_position/4, remove_obj/2]).
 
 %% ====================================================================
 %% External functions
@@ -63,18 +63,21 @@ new_tree(TreeId, Options) ->
     % then the others, as this may take some time.
     gen_server:abcast(erlang:nodes(), doe_ets, {new_tree, TreeId, Options}).
 
+
+add_obj(ObjId, AreaSpec) -> add_obj(ObjId, AreaSpec, []).
+
 %
 % this only sets the initial position. Changes in position
 % will be handled by the area update.
 %
-add_obj(ObjId, AreaSpec) ->
+add_obj(ObjId, AreaSpec, Extra) ->
     % ?debugFmt("notifying of add_obj for ~p in ~p~n", [ObjId, AreaSpec]),
     % notify the local event handler first
-    gen_event:notify(?SERVER, {local_new_obj, ObjId, AreaSpec}),
+    gen_event:notify(?SERVER, {local_new_obj, ObjId, AreaSpec, Extra}),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
     lists:map(fun(Sub) -> 
                       gen_event:notify({Sub, ?SERVER}, 
-                                       {new_obj, ObjId, AreaSpec}) 
+                                       {remote_add_obj, ObjId, AreaSpec, Extra}) 
               end, 
               Subscribers).
 
@@ -97,7 +100,6 @@ update_area(ObjId, OldAreaSpec, NewAreaSpec) ->
 
 
 update_position(ObjId, AreaSpec, NewPos, NewBBSize) -> 
-    ?debugHere,
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_update_position, ObjId, AreaSpec, NewPos, NewBBSize}),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),

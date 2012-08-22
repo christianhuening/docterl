@@ -37,7 +37,7 @@ event_new_obj_test_() ->
                           doe_event_mgr:subscribe([TreeId, 0, 0]),
                           {ok, ObjId, [TreeId, 0, 0]} = docterl_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
                           sleep(100),
-                          ?assertEqual({local_new_obj, ObjId, [TreeId, 0, 0]}, doe_test_handler:get_last_event())
+                          ?assertEqual({local_new_obj, ObjId, [TreeId, 0, 0], []}, doe_test_handler:get_last_event())
                       end)
                      ] end }}.
 
@@ -56,8 +56,8 @@ event_update_area_test_() ->
                           % execute some actions, the event will capture them
                           {ok, TreeId} = docterl_ets:new_tree([]),
                           {ok, ObjId, [TreeId, 0, 0]} = docterl_ets:add_obj(TreeId, OldPos, Size),
-                          Ret = docterl_ets:update_position(TreeId, ObjId, NewPos, Size),
-                          ?debugFmt("update_position returned: ~p~n", [Ret]),
+                          _Ret = docterl_ets:update_position(TreeId, ObjId, NewPos, Size),
+%%                           ?debugFmt("update_position returned: ~p~n", [Ret]),
                           sleep(100),
                           ?assertEqual({local_update_position, ObjId, [TreeId, 0, 0], NewPos, Size}, 
                                        doe_test_handler:get_last_event())
@@ -79,8 +79,8 @@ event_update_multi_area_test_() ->
                           % execute some actions, the event will capture them
                           {ok, TreeId} = docterl_ets:new_tree([]),
                           {ok, ObjId, [TreeId, 0, 0]} = docterl_ets:add_obj(TreeId, OldPos, Size),
-                          Ret = docterl_ets:update_position(TreeId, ObjId, NewPos, Size),
-                          ?debugFmt("update_position returned: ~p~n", [Ret]),
+                          _Ret = docterl_ets:update_position(TreeId, ObjId, NewPos, Size),
+%%                           ?debugFmt("update_position returned: ~p~n", [Ret]),
                           sleep(100),
                           ?assertEqual({local_update_position, ObjId, [TreeId, 0, 4], NewPos, Size}, 
                                        doe_test_handler:get_last_event())

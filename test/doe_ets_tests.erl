@@ -143,8 +143,8 @@ test_create_and_remove_obj() ->
     % ?debugFmt("Spec1: ~p~n", [Spec1]),
     _Spec2 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.1, 0.1}),
     % ?debugFmt("Spec2: ~p~n", [Spec2]),
-    _Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
-    % ?debugFmt("Spec3: ~p~n", [Spec3]),
+    Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
+    ?debugFmt("Spec3: ~p~n", [Spec3]),
     doe_ets:remove_obj(ObjId),
     ?debugMsg("end create_and_remove_obj_test").
 

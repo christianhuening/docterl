@@ -49,7 +49,10 @@ handle_event({local_new_tree, _TreeId}, State) ->
 handle_event({new_tree, _TreeId}, State) ->
     {ok, State};
 
-handle_event({new_obj, _ObjId, _AreaSpec}, State) ->
+handle_event({local_add_obj, _ObjId, _AreaSpec}, State) ->
+    {ok, State};
+
+handle_event({remote_add_obj, _ObjId, _AreaSpec}, State) ->
     {ok, State};
 
 handle_event({enter_area, _ObjId, _AreaSpec}, State) ->
@@ -58,7 +61,7 @@ handle_event({enter_area, _ObjId, _AreaSpec}, State) ->
 handle_event({leave_area, _ObjId, _AreaSpec}, State) ->
     {ok, State};
 
-handle_event({update_position, _ObjId, _AreaSpec, NewPos, NewBBSize}, State) ->
+handle_event({update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, State) ->
     {ok, State}.
 
 %% --------------------------------------------------------------------

@@ -21,18 +21,18 @@
 %% --------------------------------------------------------------------
 -include_lib("eunit/include/eunit.hrl").
 
--define(MAX_DEPTH_DEFAULT, 10).
+-include("../include/docterl.hrl").
 
--type vec_3d() :: {float(), float(), float()}.
--type area_spec() :: list(integer()).
+-define(MAX_DEPTH_DEFAULT, 10).
 
 -record(state, {trees_tid, areas_tid, objs_tid}).
 
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/0, stop/0, new_tree/1, new_tree/2, add_obj/2, new_obj/3, get_obj/1, 
-         remove_obj/1, update_position/4, leave_area/2, enter_area/2, get_members/1]).
+-export([start_link/0, stop/0, new_tree/1, new_tree/2, remote_add_obj/3, new_obj/3, get_obj/1, 
+         remove_obj/1, remove_obj/2, update_position/4, leave_area/2, enter_area/2, 
+         get_members/1, set_extra/2, get_extra/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -129,17 +129,23 @@ leave_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_leave_area, ObjI
 enter_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_enter_area, ObjId, AreaSpec}).
 
 %% should only be called internally by doe_event_mgr
--spec add_obj(ObjId::pos_integer(), AreaSpec::list()) -> 
+-spec remote_add_obj(ObjId::pos_integer(), AreaSpec::list(), Extra::term()) -> 
           ok | {error, term()}.
-add_obj(ObjId, AreaSpec) -> 
-    gen_server:call(?MODULE, {remote_add_obj, ObjId, AreaSpec}).
+remote_add_obj(ObjId, AreaSpec, Extra) -> 
+    gen_server:call(?MODULE, {remote_add_obj, ObjId, AreaSpec, Extra}).
 
 %% should only be called internally by doe_event_mgr
--spec remove_obj(ObjId::pos_integer(), AreaSpec::area_spec()) -> 
+-spec remove_obj(ObjId::obj_id(), AreaSpec::area_spec()) -> 
           ok | {error, invalid_id} | {error, Reason::term()}.
 remove_obj(ObjId, AreaSpec) ->
     gen_server:call(?MODULE, {remove_obj, ObjId, AreaSpec}).
 
+
+-spec set_extra(ObjId::obj_id, Extra::term()) -> ok.
+set_extra(ObjId, Extra) -> gen_server:cast(?MODULE, {set_extra, ObjId, Extra}).
+
+-spec get_extra(ObjId::obj_id()) -> {ok, term()} | {error, term()}.
+get_extra(ObjId) -> gen_server:call(?MODULE, {get_extra, ObjId}).
 
 %% ====================================================================
 %% Server functions
@@ -182,13 +188,13 @@ handle_call({new_obj, TreeId, Position, BBSize}, _From, State) ->
     {reply, {ok, ObjId, AreaSpec}, State};
 
 % TODO: assert that obj id has not been used before
-handle_call({remote_new_Obj, ObjId, AreaSpec}, _From, State) ->
-      ets:insert(State#state.objs_tid, {ObjId, AreaSpec}),
+handle_call({remote_new_Obj, ObjId, AreaSpec, Extra}, _From, State) ->
+      ets:insert(State#state.objs_tid, {ObjId, AreaSpec, Extra}),
       do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
       {reply, ok, State};
 
 handle_call({remove_obj, ObjId}, From, State) ->
-    [{ObjId, AreaSpec}] = ets:lookup(State#state.objs_tid, ObjId),
+    [{ObjId, AreaSpec, _Extra}] = ets:lookup(State#state.objs_tid, ObjId),
     handle_call({remove_obj, ObjId, AreaSpec}, From, State);
 
 handle_call({remove_obj, ObjId, AreaSpec}, _From, State) ->
@@ -226,10 +232,22 @@ handle_call({get_members, AreaSpec}, _From, State) ->
 
 handle_call({get_obj, ObjId}, _From, State) ->
         case (catch ets:lookup(State#state.objs_tid, ObjId)) of
-            [{ObjId, AreaSpec}] -> {reply, {ok, AreaSpec}, State};
+            [{ObjId, AreaSpec, _Extra}] -> {reply, {ok, AreaSpec}, State};
             [] -> {reply, {error, unknown_id}, State};
             Other -> {reply, {error, Other}}
-        end.
+        end;
+
+handle_call({get_extra, ObjId}, _From, State) ->
+        case ets:lookup(State#state.objs_tid, ObjId) of
+            [{ObjId, _AreaSpec, Extra}] -> {reply, {ok, Extra}, State};
+            [] -> {reply, {error, unknown_id}, State};
+            Other -> {reply, {error, Other}}
+        end;
+
+handle_call(Request, _From, State) ->
+    ?debugFmt("unknown reques: ~p~n", [Request]),
+    {reply, {error, unknown_request}, State}.
+
 
 
 %% --------------------------------------------------------------------
@@ -252,6 +270,10 @@ handle_cast({remote_enter_area, ObjId, AreaSpec}, State) ->
 
 handle_cast({remote_leave_area, ObjId, AreaSpec}, State) ->
     do_area_remove_obj(State#state.areas_tid, AreaSpec, ObjId),
+    {noreply, State};
+
+handle_cast({set_extra, ObjId, Extra}, State) ->
+    ets:update_element(State#state.objs_tid, ObjId, [{3, Extra}]),
     {noreply, State};
 
 handle_cast({stop}, State) ->
@@ -305,11 +327,11 @@ do_update_position(State, TreeId, ObjId, NewPos, NewBBSize) ->
     end,
     NewAreaSpec = make_area_code(TreeId, NewPos, NewBBSize, max_depth_opt(TreeOpts)),        
     case ets:lookup(State#state.objs_tid, ObjId) of
-        [{_, OldAreaSpec}] when OldAreaSpec == NewAreaSpec ->   
+        [{_, OldAreaSpec, _Extra}] when OldAreaSpec == NewAreaSpec ->   
             % ?debugFmt("area has not changed, just report success (~p, ~p)~n", [OldAreaSpec, NewAreaSpec]), 
             {ok, NewAreaSpec};
         
-        [{_, OldAreaSpec}] -> 
+        [{_, OldAreaSpec, _Extra}] -> 
             % ?debugFmt("area has changed, send updates (~p, ~p)~n", [OldAreaSpec, NewAreaSpec]), 
             do_precalc_update_position(State, ObjId, OldAreaSpec, NewAreaSpec);
         
@@ -389,8 +411,8 @@ calc_border(MinPos, MaxPos, ObjPos, BBLen, BitMult) ->
 %% this is neither fast nor can it be distributed, but it will work for now.
 make_new_id(TabId) -> ets:foldl(fun id_max/2, 0, TabId) + 1.
 
-id_max({Id, _}, Curr) ->
-    max(Id, Curr).
+id_max({Id, _}, Curr) -> max(Id, Curr);
+id_max({Id, _, _}, Curr) -> max(Id, Curr).
 
 do_make_tree(TreesTId, Options) ->
     NewId = make_new_id(TreesTId),
@@ -399,7 +421,7 @@ do_make_tree(TreesTId, Options) ->
 
 do_make_obj(ObjsTId, AreaSpec) ->
     NewId = make_new_id(ObjsTId),
-    ets:insert(ObjsTId, {NewId, AreaSpec}),
+    ets:insert(ObjsTId, {NewId, AreaSpec, []}),
     NewId.
 
 %%

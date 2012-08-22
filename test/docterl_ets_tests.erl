@@ -27,7 +27,8 @@ basic_api_test_() ->
       end,
       fun(_Args) -> [?_test(test_new_tree()),
                      ?_test(test_new_obj()),
-                     ?_test(test_remove_obj())] 
+                     ?_test(test_remove_obj()),
+                     ?_test(test_set_get_extra())] 
               end
       }.
 
@@ -52,18 +53,14 @@ test_remove_obj() ->
     ?assertNot(lists:member(ObjId, Members)),
     ?debugHere.
 
-%% _test_() -> 
-%%     { "",
-%%       { setup,
-%%         fun fixStart/0,
-%%         fun fixStop/1,
-%%         fun(_Foo) -> [
-%%                       ?_test(
-%%                       begin
-%%                           {ok, TreeId} = docterl_ets:new_tree([]),
-%%                           {ok, _ObjId, _AreaSpec} = docterl_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1})
-%%                       end)
-%%                      ] end }}.
+test_set_get_extra() ->
+    Pos = {0.1, 0.1, 0.1},
+    Size = {0.1, 0.1, 0.1},
+    {ok, TreeId} = docterl_ets:new_tree(),
+    {ok, ObjId, _AreaSpec} = docterl_ets:add_obj(TreeId, Pos, Size),
+    docterl_ets:set_extra(ObjId, {some_extras}),
+    ?assertEqual({ok, {some_extras}}, docterl_ets:get_extra(ObjId)).
+
 
 %% sleep for number of miliseconds
 sleep(T) ->
