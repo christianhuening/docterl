@@ -32,6 +32,21 @@ basic_api_test_() ->
               end
       }.
 
+utility_funcs_test_() ->
+    { "test the utility functions for navigating the octree",
+      setup,
+      fun() ->
+              ok
+              end,
+      fun(_Args) ->
+              ok
+              end,
+      fun(_Args) -> [?_test(test_root()),
+                     ?_test(test_children()),
+                     ?_test(test_parent())]
+                     end
+}.
+
 test_new_tree() -> 
     ?assertMatch({ok, _TreeId}, docterl_ets:new_tree([])).
 
@@ -61,6 +76,23 @@ test_set_get_extra() ->
     docterl_ets:set_extra(ObjId, {some_extras}),
     ?assertEqual({ok, {some_extras}}, docterl_ets:get_extra(ObjId)).
 
+
+test_root() ->
+    ?assertEqual(invalid_area, catch docterl_ets:root([])),
+    ?assertEqual(invalid_area, catch docterl_ets:root(atom)),
+    ?assertEqual([1], catch docterl_ets:root([1])),
+    ?assertEqual([1], catch docterl_ets:root([1,2,3,4,5,6])).
+
+test_children() ->
+    % TOOO!!!!
+ok.
+
+test_parent() ->
+    ?assertEqual(invalid_area, catch docterl_ets:parent([])),
+    ?assertEqual(invalid_area, catch docterl_ets:parent(atom)),
+    ?assertEqual([1], catch docterl_ets:parent([1])),
+    ?assertEqual([1,1], catch docterl_ets:parent([1,1,1])),
+    ?assertEqual([1,2,4], catch docterl_ets:parent([1,2,4,6])).
 
 %% sleep for number of miliseconds
 sleep(T) ->

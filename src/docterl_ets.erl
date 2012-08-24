@@ -23,6 +23,10 @@
 -export([new_tree/0, new_tree/1, add_obj/3, remove_obj/1, 
          update_position/4, get_obj/1, add_handler/1, set_extra/2, get_extra/1]).
 
+%% Utility functions for tree navigation. These allow hiding the implementation
+%% details of the tree.
+-export([parent/1, children/1, root/1]).
+
 
 %% ====================================================================
 %% External functions
@@ -146,5 +150,47 @@ get_extra(ObjId) -> doe_ets:get_extra(ObjId).
 
 -spec add_handler(Handler::atom()) -> ok | term().
 add_handler(Handler) -> doe_event_mgr:add_handler(Handler, []).
+
+%% --------------------------------------------------------------------
+%% @doc get the parent node of a given octree node
+%%
+%% <p>the parent of the root is the root.</p>
+%%
+%% @throws invalid_area
+%% @end
+%% --------------------------------------------------------------------
+-spec parent(AreaSpec::area_spec()) -> {ok, area_spec()} | {error, invalid_area}.
+parent([]) -> throw(invalid_area);
+
+parent([X]) -> [X];
+
+parent(AreaSpec) when is_list(AreaSpec) -> lists:reverse(tl(lists:reverse(AreaSpec)));
+
+parent(_) -> throw(invalid_area).
+
+
+%% --------------------------------------------------------------------
+%% @doc generate a list of all valid children of a given octree node.
+%% @end
+%% --------------------------------------------------------------------
+-spec children(AreaSpec::area_spec()) -> [area_spec()].
+children(AreaSpec) -> [lists:append(AreaSpec, [X]) || X <- lists:seq(0, 7) ].
+
+
+%% --------------------------------------------------------------------
+%% @doc get the root node of the tree, that the node is part of.
+%%
+%% @throws invalid_area
+%% @end
+%% --------------------------------------------------------------------
+-spec root(AreaSpec::area_spec()) -> area_spec().
+root([]) -> throw(invalid_area);
+
+root([X]) -> [X];
+
+root([X| _RestSpec]) -> [X]; % only the tree-id
+
+root(_) ->  throw(invalid_area).
+
 
 
