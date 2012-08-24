@@ -27,7 +27,7 @@ doc :
 	@./rebar doc skip_deps=true
 
 unit-test:
-	./rebar eunit
+	ERL_FLAGS="-name rebar" ./rebar eunit
 
 dist-test:
 #	for name in ${NODENAMES} ; do erl_call -s -name $$name ; done

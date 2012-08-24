@@ -21,7 +21,7 @@
 %% --------------------------------------------------------------------
 %% External exports
 -export([start_link/0, stop/0, add_handler/2, delete_handler/2, 
-         new_tree/2, subscribe/1, unsubscribe/1, 
+         new_tree/2, subscribe/1, unsubscribe/1, subscribe/2, unsubscribe/2, 
          add_obj/2, add_obj/3, update_area/3, update_position/4, remove_obj/2]).
 
 %% ====================================================================
@@ -47,13 +47,18 @@ delete_handler(Handler, Args) ->
     gen_event:delete_handler(?SERVER, Handler, Args).
 
 
-subscribe(AreaSpec) ->
-    gen_server:abcast(erlang:nodes(), doe_ets, 
-                      {subscribe, AreaSpec, erlang:node()}).
 
-unsubscribe(AreaSpec) ->
+subscribe(AreaSpec) -> subscribe(AreaSpec, node()).
+
+subscribe(AreaSpec, Node) ->
     gen_server:abcast(erlang:nodes(), doe_ets, 
-                      {unsubscribe, AreaSpec, erlang:node()}).
+                      {subscribe, AreaSpec, Node}).
+
+unsubscribe(AreaSpec) -> unsubscribe(AreaSpec, node()).
+
+unsubscribe(AreaSpec, Node) ->
+    gen_server:abcast(erlang:nodes(), doe_ets, 
+                      {unsubscribe, AreaSpec, Node}).
 
 
 new_tree(TreeId, Options) -> 
