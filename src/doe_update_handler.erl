@@ -44,8 +44,8 @@ init([]) ->
 %%          remove_handler
 %% --------------------------------------------------------------------
 handle_event({new_tree, TreeID, Options}, State) ->
-     doe_ets:new_tree(TreeID, Options),
-    {ok, State};
+     doe_ets:remote_new_tree(TreeID, Options),
+     {ok, State};
 
 handle_event({remote_add_obj, ObjId, AreaSpec, Extra}, State) ->
     doe_ets:remote_add_obj(ObjId, AreaSpec, Extra),

@@ -32,14 +32,6 @@ event_mgt_test_() ->
                    ] 
       end }.
 
-%% multi_node_event_test_() ->
-%%     { "test functions on multiple nodes.",
-%%       inparralel 
-%%     [{setup,
-%%       {spawn 'server1@flar.informatik.haw-hamburg.de'},
-%%      {}]
-%%       }.
-
 % test the transmission of the proper events: 1. new tree",
 test_event_new_tree() -> 
     doe_event_mgr:add_handler(doe_test_handler, []),
@@ -88,77 +80,9 @@ test_event_update_multi_area() ->
     ?assertEqual({local_update_position, ObjId, [TreeId, 0, 4], NewPos, Size}, 
                  doe_test_handler:get_last_event()).
 
-test_local_subscribe() ->
-    Node = node(),
-    ?debugFmt("node: ~p~n", [Node]),
-    TreeId = docterl_ets:new_tree(),
-    AreaSpec = [TreeId],
-    doe_event_mgr:subscribe(AreaSpec),
-    ?assertEqual([Node], gen_server:call(doe_ets, {get_subscribers, AreaSpec})).
-
 %% sleep for number of miliseconds
 sleep(T) ->
 	receive 
 		after T -> ok 
 	end.
-
-
-%
-% Multi-Node Test
-%
-
-slave_test_() ->
-    {"simple slave test",
-%%      node, 'foo@127.0.0.1',
-     node, foo,
-          fun (Node) ->
-              [?_assertMatch(pong, net_adm:ping(Node)),
-               ?_assertMatch("olleh",
-                             rpc:call(Node, lists, reverse, ["hello"]))]
-     end
-    }.
-
-
-start_node_fixture_test_() ->
-    { Node, Host } = split_node(node()),
-    S  = Node ++ "_slave",
-    RN = erlang:list_to_atom( S ++ "@" ++ Host),
-    ?debugFmt("trying to run on ~p~n", [RN]),
-    
-    {"slave start by hand",
-     foreach,
-     fun distr_setup/0,
-     fun distr_cleanup/1,
-     [?_test(start_node_test_1)
-      ]}.
-
-start_node_test_setup() ->
-     io:format(user, "setup is on: ~p~n", [ node() ]),
-     erlang:module_info(doe_event_mgr_tests),
-     application:load(docterl_ets).
-
-start_node_test_cleanup(_) ->
-     io:format(user, "cleanup is on: ~p~n", [ node() ]).
-
-start_node_test_1(Node) ->
-     io:format(user, "Where does this go: ~p~n", [ node() ]).
-
-split_node(Node) when is_atom(Node) ->
-   split_node(atom_to_list(Node), []).
-split_node([], UseAsHost )    -> { [], UseAsHost };
-split_node([ $@ | T ], Node ) -> { Node, T };
-split_node([ H | T ], Node )  -> split_node(T,  Node ++ [H] ).
-
-distr_setup() ->
-%%     erlang:set_cookie(node(),eunit),
-    Host = list_to_atom(inet_db:gethostname()),
-    Args = " -pa "++hd(code:get_path())++" -setcookie eunit",
-    {ok,N1} = slave:start(Host,n1,Args),
-    {ok,N2} = slave:start(Host,n2,Args),
-    rpc:call(N1,net_kernel,connect_node,[N2]),
-    [N1,N2].
-
-distr_cleanup([N1,N2]) ->
-    slave:stop(N1),
-    slave:stop(N2).
 

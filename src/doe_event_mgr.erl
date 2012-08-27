@@ -66,7 +66,7 @@ new_tree(TreeId, Options) ->
     gen_event:notify(?SERVER, {local_new_tree, TreeId, Options}),
     % ?debugMsg("local notification sent"),
     % then the others, as this may take some time.
-    gen_server:abcast(erlang:nodes(), doe_ets, {new_tree, TreeId, Options}).
+    gen_server:abcast(erlang:nodes(), doe_ets, {remote_new_tree, TreeId, Options}).
 
 
 add_obj(ObjId, AreaSpec) -> add_obj(ObjId, AreaSpec, []).

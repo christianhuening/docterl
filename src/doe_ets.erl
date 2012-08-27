@@ -30,9 +30,9 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/0, stop/0, new_tree/1, new_tree/2, remote_add_obj/3, new_obj/3, get_obj/1, 
-         remove_obj/1, remove_obj/2, update_position/4, leave_area/2, enter_area/2, 
-         get_members/1, set_extra/2, get_extra/1]).
+-export([start_link/0, stop/0, new_tree/1, remote_new_tree/2, remote_add_obj/3, new_obj/3, get_obj/1,
+         remove_obj/1, remove_obj/2, get_subscribers/1, update_position/4, leave_area/2, enter_area/2, 
+         get_members/1, set_extra/2, get_extra/1, subscribe/2, unsubscribe/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -114,9 +114,14 @@ update_position(TreeId, ObjId, NewPos, NewBBSize) ->
 get_members(AreaSpec) -> gen_server:call(?MODULE, {get_members, AreaSpec}).
 
 
+-spec get_subscribers(AreaSpec::area_spec()) -> {ok, Subsribers::list()} | {error, term()}.
+get_subscribers(AreaSpec) -> gen_server:call(doe_ets, {get_subscribers, AreaSpec}).
+
+
 %% should only be called internally by doe_event_mgr
--spec new_tree(TreeId::pos_integer(), Options::list()) -> {ok, pos_integer()} | {error | term()}.
-new_tree(TreeId, Options) -> gen_server:call(?MODULE, {remote_new_tree, TreeId, Options}).
+-spec remote_new_tree(TreeId :: pos_integer(), Options :: list()) -> 
+                         {ok, pos_integer()}  | {error  | term()}.
+remote_new_tree(TreeId, Options) -> gen_server:cast(?MODULE, {remote_new_tree, TreeId, Options}).
 
 %% should only be called internally by doe_event_mgr
 -spec leave_area(ObjId::pos_integer(), AreaSpec::list()) ->
@@ -146,6 +151,13 @@ set_extra(ObjId, Extra) -> gen_server:cast(?MODULE, {set_extra, ObjId, Extra}).
 
 -spec get_extra(ObjId::obj_id()) -> {ok, term()} | {error, term()}.
 get_extra(ObjId) -> gen_server:call(?MODULE, {get_extra, ObjId}).
+
+
+-spec subscribe(AreaSpec::area_spec(), Node::atom()) -> ok.
+subscribe(AreaSpec, Node) -> gen_server:cast(?MODULE, {subscribe, AreaSpec, Node}).
+
+-spec unsubscribe(AreaSpec::area_spec(), Node::atom()) -> ok.
+unsubscribe(AreaSpec, Node) -> gen_server:cast(?MODULE, {unsubscribe, AreaSpec, Node}).
 
 %% ====================================================================
 %% Server functions
@@ -245,7 +257,7 @@ handle_call({get_extra, ObjId}, _From, State) ->
         end;
 
 handle_call(Request, _From, State) ->
-    ?debugFmt("unknown reques: ~p~n", [Request]),
+    ?debugFmt("unknown request: ~p~n", [Request]),
     {reply, {error, unknown_request}, State}.
 
 
@@ -276,8 +288,34 @@ handle_cast({set_extra, ObjId, Extra}, State) ->
     ets:update_element(State#state.objs_tid, ObjId, [{3, Extra}]),
     {noreply, State};
 
+handle_cast({subscribe, AreaSpec, Node}, State) ->
+    Tid = State#state.areas_tid,
+    case (catch ets:lookup(Tid, AreaSpec)) of
+        [] -> 
+            ets:insert(Tid, {AreaSpec, [], [Node]}),
+            {noreply, State};
+        [{AreaSpec, _ObjList, OldSubs}] -> 
+            NewList = lists:usort([Node|OldSubs]),
+            ets:update_element(Tid, AreaSpec, [{3, NewList}]),
+            {noreply, State};
+        Unknown ->  
+            {stop, {error, unknown_cause, Unknown}, State}  
+    end;
+
+handle_cast({unsubscribe, AreaSpec, Node}, State) ->
+    Tid = State#state.areas_tid,
+    case (catch ets:lookup(Tid, AreaSpec)) of
+        [] -> % was not in the list before, will not be now 
+            {noreply, State};
+        [{AreaSpec, _ObjList, OldSubs}] -> 
+            NewSubs = lists:delete(Node, OldSubs), 
+            ets:update_element(Tid, AreaSpec, [{3, NewSubs}]),
+            {noreply, State};
+        Unknown ->  
+            {stop, {error, unknown_cause, Unknown}, State}  
+    end;
+
 handle_cast({stop}, State) ->
-%%     {noreply, State}.
     {stop, normal, State}.
 
 %% --------------------------------------------------------------------
@@ -295,8 +333,11 @@ handle_info(_Info, State) ->
 %% Description: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %% --------------------------------------------------------------------
-terminate(_Reason, _State) ->
-    %?debugFmt("terminating doe_ets server. Reason: ~p~n", [Reason]),
+terminate(_Reason, State) ->
+    ets:delete(State#state.trees_tid),
+    ets:delete(State#state.areas_tid),
+    ets:delete(State#state.objs_tid),
+%%     ?debugFmt("terminating doe_ets server. Reason: ~p~n", [Reason]),
     ok.
 
 %% --------------------------------------------------------------------

@@ -21,7 +21,8 @@
 %% --------------------------------------------------------------------
 %% External exports
 -export([new_tree/0, new_tree/1, add_obj/3, remove_obj/1, 
-         update_position/4, get_obj/1, add_handler/1, set_extra/2, get_extra/1]).
+         update_position/4, get_obj/1, add_handler/1, set_extra/2, get_extra/1, 
+         start_app/1]).
 
 %% Utility functions for tree navigation. These allow hiding the implementation
 %% details of the tree.
@@ -31,6 +32,8 @@
 %% ====================================================================
 %% External functions
 %% ====================================================================
+
+start_app(_Init) -> application:start(docterl_ets).
 
 %% --------------------------------------------------------------------
 %% @doc initialise a new tree.

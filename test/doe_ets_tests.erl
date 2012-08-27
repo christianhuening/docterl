@@ -13,26 +13,28 @@ info_test_() ->
 
 
 internal_funcs_test_() -> 
-    {setup,
+    {"test internal functions",
+     setup,
      fun() ->
-%%              application:start(sasl),
+             %%              application:start(sasl),
              ok
      end,
      fun(_PId) ->
-%%              application:stop(sasl),
+             %%              application:stop(sasl),
              ok
      end,
      fun(PId) -> 
              [?_test(test_start_stop(PId)),
               ?_test(test_make_area(PId)),
-              ?_test(test_make_new_treeid(PId)),
+              ?_test(test_make_new_treeid()),
               ?_test(test_make_new_obj_id(PId))
              ]
      end 
     }.
 
 internal_API_test_() -> 
-    {setup,
+    {"test the internal api used by docterl_ets",
+     foreach,
      fun() ->
              %% application:start(sasl),
              _StartRet = doe_ets:start_link(),
@@ -42,16 +44,21 @@ internal_API_test_() ->
      fun(_PId) ->
              %% application:stop(sasl),
              doe_ets:stop(),
+%%              ?debugMsg("stopping doe_ets"),
              sleep(100),
              ok
      end,
-     fun(_Args) -> [?_test(test_create_and_remove_obj()),
-                   ?_test(test_create_and_get_obj())]              
-     end 
+     [
+      ?_test(test_create_and_remove_obj()),
+      ?_test(test_make_remote_new_tree()), 
+      ?_test(test_create_and_get_obj()),
+      ?_test(test_subscribe_unsubscribe())
+     ]                    
     }.
 
 simple_benchmark_test_() -> 
-    {setup,
+    {"run a very simple benchmark",
+     setup,
      fun() ->
              %% application:start(sasl),
              _StartRet = doe_ets:start_link(),
@@ -74,24 +81,44 @@ simple_benchmark_test_() ->
 %% ====================================================================
 
 test_start_stop(_Foo) ->
-    ?debugMsg("starting start_link_test"),
+%%     ?debugMsg("starting start_link_test"),
     case doe_ets:start_link() of
         {ok, _Pid} -> ok;
         Failure -> ?debugFmt("starting doe_ets failed: ~p~n", [Failure]), 
                    ?assert(false)
     end,
-    Ret = (catch doe_ets:stop()),
-    ?debugFmt("stop returned: ~p", [Ret]),
+    _Ret = (catch doe_ets:stop()),
+%%     ?debugFmt("stop returned: ~p", [Ret]),
     sleep(100),
     ?assertNot(lists:member(doe_ets, erlang:registered())).
 
 
+test_subscribe_unsubscribe() ->
+    AreaSpec= [1,2,3],
+    AreaSpec2 = [1,2],
+    doe_ets:subscribe(AreaSpec, node1),
+    ?assertEqual([node1], doe_ets:get_subscribers(AreaSpec)),
+    doe_ets:subscribe(AreaSpec, node2),
+    ?assertEqual([], lists:subtract([node1, node2], doe_ets:get_subscribers(AreaSpec))),
+    doe_ets:subscribe(AreaSpec2, node3),
+    ?assertEqual([], lists:subtract([node1, node2], doe_ets:get_subscribers(AreaSpec))),
+    ?assertEqual([node3], doe_ets:get_subscribers(AreaSpec2)),
+    doe_ets:subscribe(AreaSpec, node2),
+    doe_ets:subscribe(AreaSpec, node2),
+    sleep(100),
+    ?assertEqual([], lists:subtract(doe_ets:get_subscribers(AreaSpec), [node1, node2])),
+    doe_ets:unsubscribe(AreaSpec, node1),
+    ?assertEqual([node2], doe_ets:get_subscribers(AreaSpec)),
+    ?assertEqual([node3], doe_ets:get_subscribers(AreaSpec2)).
+
+
+    
 %% ====================================================================
 %% Test internal functions
 %% ====================================================================
 
 test_make_area(_Args) ->
-    ?debugMsg("starting make_area_test"),
+%%     ?debugMsg("starting make_area_test"),
     TestCases = [
                  {{0.000001, 0.000001, 0.000001}, 
                   {0.9999, 0.9999, 0.9999}, 
@@ -119,8 +146,8 @@ test_make_area(_Args) ->
     lists:all(fun do_make_area_test/1, TestCases).
 
     
-test_make_new_treeid(_PId) -> 
-    ?debugMsg("starting make_new_treeid_test"),
+test_make_new_treeid() -> 
+%%     ?debugMsg("starting make_new_treeid_test"),
     TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
     % ?debugMsg("do first make_new_id"),
     ?assertEqual(1, doe_ets:make_new_id(TreesTId)),
@@ -130,9 +157,15 @@ test_make_new_treeid(_PId) ->
     ?assertEqual(3, doe_ets:make_new_id(TreesTId)),
     ets:delete(TreesTId).
 
+test_make_remote_new_tree() ->
+    ?debugMsg("starting make_remote_new_tree_test"),
+    ?assertEqual({ok, 1}, doe_ets:new_tree([])),
+    doe_ets:remote_new_tree(2, []),
+    sleep(100),
+    ?assertEqual({ok, 3}, doe_ets:new_tree([])).
 
 test_make_new_obj_id(_PId) -> 
-    ?debugMsg("starting make_new_new test"),
+%%     ?debugMsg("starting make_new_new test"),
     ObjsTId = ets:new(objs, [set]),
     ?assertEqual(1, doe_ets:make_new_id(ObjsTId)),
     doe_ets:do_make_obj(ObjsTId, [1]),
@@ -143,19 +176,18 @@ test_make_new_obj_id(_PId) ->
 
 
 test_create_and_remove_obj() -> 
-    ?debugMsg("starting create_and_remove_obj test"),
+%%     ?debugMsg("starting create_and_remove_obj test"),
     {ok, TreeId} = doe_ets:new_tree([]),
     {ok, ObjId, _Spec1} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
     % ?debugFmt("Spec1: ~p~n", [Spec1]),
     _Spec2 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.1, 0.1}),
     % ?debugFmt("Spec2: ~p~n", [Spec2]),
-    Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
-    ?debugFmt("Spec3: ~p~n", [Spec3]),
-    doe_ets:remove_obj(ObjId),
-    ?debugMsg("end create_and_remove_obj_test").
+    _Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
+%%     ?debugFmt("Spec3: ~p~n", [Spec3]),
+    doe_ets:remove_obj(ObjId).
 
 test_create_and_get_obj() ->
-    ?debugMsg("starting create_and_remove_obj test"),
+%%     ?debugMsg("starting create_and_remove_obj test"),
     {ok, TreeId} = doe_ets:new_tree([]),
     {ok, ObjId, AreaSpec} = doe_ets:new_obj(TreeId, {0.5, 0.5, 0.5}, {0.1, 0.1, 0.1}),
     ?assertMatch({ok, _List}, doe_ets:get_members(AreaSpec)),
@@ -164,7 +196,7 @@ test_create_and_get_obj() ->
 
 
 test_run_a_thousand_updates(_PId) ->
-    ?debugMsg("starting run_a_throusand_updates_test"),
+%%     ?debugMsg("starting run_a_throusand_updates_test"),
     {ok, TreeId} = doe_ets:new_tree([]),
     {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
     test_avg(doe_ets_tests, 
@@ -175,7 +207,7 @@ test_run_a_thousand_updates(_PId) ->
 
 
 test_run_a_thousand_different_updates(_PId) ->
-    ?debugMsg("starting run_a_thousand_different_updates_test"),
+%%     ?debugMsg("starting run_a_thousand_different_updates_test"),
     {ok, TreeId} = doe_ets:new_tree([]),
     {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.01, 0.01, 0.01}),
     test_avg(doe_ets_tests, 
@@ -191,7 +223,7 @@ test_run_a_thousand_different_updates(_PId) ->
 
 do_make_area_test({Position, BBSize, Expected}) -> 
       Ret = doe_ets:make_area_code(1, Position, BBSize, 10),
-%     ?debugFmt("generated : ~p~n", [Ret]).
+%%      ?debugFmt("generated : ~p~n", [Ret]).
       ?assertEqual(Expected, Ret),
       true.
 
