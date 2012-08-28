@@ -24,11 +24,11 @@ multi_node_event_test_() ->
               {_, Host} = split_node(node()),
               Contacts = lists:map(fun(A) -> list_to_atom(A ++ "@" ++ Host) end, Nodes),
               lists:map(fun net_adm:ping/1, Contacts),
-              application:start(docterl_ets)
+              application:start(docterl_ets),
+              Contacts
             end,
       fun(_Nodes) ->
-%%               application:stop(docterl_ets)
-ok, application:info()
+              application:stop(docterl_ets)
       end,
       fun(Nodes) -> [
                  ?_test(test_basic_setup()),
@@ -43,7 +43,7 @@ test_basic_setup() ->
 test_local_subscribe(Remotes) ->
     Node = node(),
     {ok, TreeId} = docterl_ets:new_tree(),
-    ?debugFmt("done new_tree: ~p~n", [TreeId]),
+%%     ?debugFmt("done new_tree: ~p~n", [TreeId]),
 
     AreaSpec = [TreeId],
     doe_event_mgr:subscribe(AreaSpec),
@@ -51,8 +51,16 @@ test_local_subscribe(Remotes) ->
     lists:map(fun(Remote) -> checkRemotes(Remote, AreaSpec, [Node]) end, Remotes).
 
 checkRemotes(Remote, AreaSpec, Subscribers) -> 
-    {ok, RemoteSubs} = rpc:call(Remote, doe_ets, get_subscribers, [AreaSpec]),
-    ?assertEqual(Subscribers, RemoteSubs).
+     case (catch rpc:call(Remote, doe_ets, get_subscribers, [AreaSpec])) of
+         RemoteSubs when is_list(RemoteSubs) -> 
+             ?assertEqual(Subscribers, RemoteSubs);         
+         {badrpc, nodedown} -> 
+             ?debugFmt("node down: ~p~n", [Remote]),
+             ?assert(false);             
+         Unknown -> 
+             ?debugFmt("recieved unknown error: ~p~n",[Unknown]),
+             ?assert(false)
+     end.
 
 
 
