@@ -31,13 +31,15 @@ multi_node_event_test_() ->
               application:stop(docterl_ets)
       end,
       fun(Nodes) -> [
-                 ?_test(test_basic_setup()),
-                 ?_test(test_local_subscribe(Nodes))]
+                 ?_test(test_basic_setup(Nodes)),
+                 ?_test(test_local_subscribe(Nodes)),
+                 ?_test(test_local_add_obj(Nodes))]
         end
       }.
 
-test_basic_setup() ->
-    ?debugFmt("I am running on node ~p, connected to ~p~n", [node(), nodes()]).
+test_basic_setup(Nodes) ->
+    ?debugFmt("I am running on node ~p, connected to ~p. Setup for use in doe are: ~p~n", 
+              [node(), nodes(), Nodes]).
 
 
 test_local_subscribe(Remotes) ->
@@ -62,6 +64,54 @@ checkRemotes(Remote, AreaSpec, Subscribers) ->
              ?assert(false)
      end.
 
+%
+% have a remote node subscribe to this doe_ets, than create a new tree and a new object localy
+% 
+test_local_add_obj(Remotes) ->
+    Position = {0.1, 0.1, 0.1},
+    Position2 = {0.1, 0.1, 0.1000001},
+    BBSize = {0.16, 0.16, 0.16},
+    AreaSpecRem = [0],
+    [Remote|_Rest] = Remotes,
+    
+    {ok, TreeId} = docterl_ets:new_tree(),
+    case (catch rpc:call(Remote, doe_ets, subscribe, [[TreeId|AreaSpecRem], node()])) of
+        ok -> ok;               
+        {badrpc, nodedown} -> 
+            ?debugFmt("node down: ~p~n", [Remote]),
+            ?assert(false);             
+        Unknown -> 
+            ?debugFmt("recieved unknown error: ~p~n",[Unknown]),
+            ?assert(false)
+    end,
+    case (catch gen_event:add_handler(doe_event_mgr, doe_test_handler, [])) of
+        ok -> ok;
+        Unknown2 -> 
+            ?debugFmt("recieved unknown error: ~p for node~p~n",[Unknown2, Remote]),
+            ?assert(false)                  
+    end,
+    docterl_ets:add_obj(TreeId, Position, BBSize),
+    sleep(100),
+    ?assertMatch({local_new_obj, 1, [TreeId, 0], []}, doe_test_handler:get_last_event()),
+    case (catch rpc:call(Remote, docterl_ets, add_obj, [TreeId, Position2, BBSize])) of
+        {ok, NewObjId, AreaSpec2} -> 
+            ?debugFmt("return: ~p~n", [{ok,NewObjId,AreaSpec2}]),
+            sleep(100),
+            ?assertMatch({new_obj, NewObjId, [TreeId, 0], []}, doe_test_handler:get_last_event());               
+        {badrpc, nodedown} -> 
+            ?debugFmt("node down: ~p~n", [Remote]),
+            ?assert(false);             
+        Unknown3 -> 
+            ?debugFmt("recieved unknown error: ~p~n",[Unknown3]),
+            ?assert(false)
+    end,    
+    ok.
+
+%% sleep for number of miliseconds
+sleep(T) ->
+    receive 
+        after T -> ok 
+    end.
 
 
 split_node(Node) when is_atom(Node) ->
