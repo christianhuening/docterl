@@ -20,7 +20,7 @@ multi_node_event_test_() ->
     { "test functions on multiple nodes.",
       setup,
       fun() ->
-              Nodes = ["server2"],
+              Nodes = ["server1"],
               {_, Host} = split_node(node()),
               Contacts = lists:map(fun(A) -> list_to_atom(A ++ "@" ++ Host) end, Nodes),
               lists:map(fun net_adm:ping/1, Contacts),
@@ -99,7 +99,7 @@ test_local_add_obj(Remotes) ->
             sleep(100),
             ?debugFmt("local handlers: ~p~n", [gen_event:which_handlers(doe_event_mgr)]),
             ?debugFmt("remote handlers: ~p~n", [gen_event:which_handlers({doe_event_mgr, Remote})]),
-            ?assertMatch({new_obj, NewObjId, [TreeId, 0], []}, doe_test_handler:get_last_event());               
+            ?assertMatch({remote_add_obj, NewObjId, [TreeId, 0], []}, doe_test_handler:get_last_event());               
         {badrpc, nodedown} -> 
             ?debugFmt("node down: ~p~n", [Remote]),
             ?assert(false);             

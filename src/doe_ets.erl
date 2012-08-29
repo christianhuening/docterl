@@ -38,6 +38,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -ifdef(TEST).
+%% export the private functions for testing only.
 -export([make_area_code/4, make_area_code_step/6, make_new_id/1, 
          do_make_tree/2, do_make_obj/2]).
 -endif.

@@ -5,4 +5,4 @@ external_modules=
 include_dirs=include
 nukeOutputOnClean=false
 output_dir=ebin
-source_dirs=test;src
+source_dirs=extra_src;test;src

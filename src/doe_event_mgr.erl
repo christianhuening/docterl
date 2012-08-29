@@ -24,6 +24,11 @@
          new_tree/2, subscribe/1, unsubscribe/1, subscribe/2, unsubscribe/2, 
          add_obj/2, add_obj/3, update_area/3, update_position/4, remove_obj/2]).
 
+-ifdef(TEST).
+%% export the private functions for testing only.
+-export([notify_subs/2]).
+-endif.
+
 %% ====================================================================
 %% External functions
 %% ====================================================================
@@ -80,12 +85,7 @@ add_obj(ObjId, AreaSpec, Extra) ->
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_new_obj, ObjId, AreaSpec, Extra}),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
-    lists:map(fun(Sub) -> 
-                      ?debugFmt("notifying remote_add_obj for ~p~n", [Sub]),
-                      gen_event:notify({Sub, ?SERVER}, 
-                                       {remote_add_obj, ObjId, AreaSpec, Extra}) 
-              end, 
-              Subscribers).
+    notify_subs(Subscribers, {remote_add_obj, ObjId, AreaSpec, Extra}).
 
 update_area(ObjId, OldAreaSpec, NewAreaSpec) -> 
     % notify the local event handler first
@@ -93,41 +93,31 @@ update_area(ObjId, OldAreaSpec, NewAreaSpec) ->
     gen_event:notify(?SERVER, {local_enter_area, ObjId, NewAreaSpec}),
     OldSubscribers = gen_server:call(doe_ets, {get_subscribers, OldAreaSpec}),
     NewSubscribers = gen_server:call(doe_ets, {get_subscribers, NewAreaSpec}),
-    lists:map(fun(Sub) -> 
-                      gen_event:notify({Sub, ?SERVER}, 
-                                       {leave_area, ObjId, OldAreaSpec}) 
-              end, 
-              OldSubscribers),
-        lists:map(fun(Sub) -> 
-                      gen_event:notify({Sub, ?SERVER}, 
-                                       {enter_area, ObjId, NewAreaSpec}) 
-              end, 
-              NewSubscribers).
+    notify_subs(OldSubscribers, {leave_area, ObjId, OldAreaSpec}),
+    notify_subs(NewSubscribers, {enter_area, ObjId, NewAreaSpec}).
 
 
 update_position(ObjId, AreaSpec, NewPos, NewBBSize) -> 
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_update_position, ObjId, AreaSpec, NewPos, NewBBSize}),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
-    lists:map(fun(Sub) -> 
-                      gen_event:notify({Sub, ?SERVER}, 
-                                       {update_position, ObjId, AreaSpec, NewPos, NewBBSize}) 
-              end, 
-              Subscribers).
+    notify_subs(Subscribers, {update_position, ObjId, AreaSpec, NewPos, NewBBSize}).
 
 
 remove_obj(ObjId, AreaSpec) -> 
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_remove_obj, ObjId, AreaSpec}),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
-    lists:map(fun(Sub) -> 
-                      gen_event:notify({Sub, ?SERVER}, 
-                                       {remove_obj, ObjId, AreaSpec}) 
-              end, 
-              Subscribers).
+    notify_subs(Subscribers, {remove_obj, ObjId, AreaSpec}).
     
 
 %% --------------------------------------------------------------------
 %%% Internal functions
 %% --------------------------------------------------------------------
 
+notify_subs(Subscribers, Event) ->
+    lists:map(fun(Sub) -> 
+                      ?debugFmt("sending event ~p for ~p~n", [Event, Sub]),
+                      gen_event:notify({?SERVER, Sub}, Event) 
+              end, 
+              Subscribers).

@@ -6,6 +6,28 @@ info_test_() ->
     { setup, fun() -> ok end, 
       fun() -> ?debugFmt("~n############################################~n      starting ~p~n############################################~n  ", [?MODULE]) end }.
 
+internal_func_test_() -> 
+    { "test internal functions",
+      setup,
+      
+      fun() ->
+              %%     application:start(sasl),
+              doe_ets:start_link(),
+              doe_event_mgr:start_link(),    
+              ok
+      end,
+      
+      fun(_Args) ->
+              %%     application:stop(sasl),
+              doe_ets:stop(),
+              doe_event_mgr:stop(),
+              ok
+      end,
+      fun(_Foo) -> [
+                    ?_test(test_notify_subs())
+                   ] 
+      end }.
+
 
 event_mgt_test_() -> 
     { "test the transmission of the proper events",
@@ -31,6 +53,13 @@ event_mgt_test_() ->
                     ?_test(test_event_update_multi_area())
                    ] 
       end }.
+
+test_notify_subs() ->
+    doe_event_mgr:add_handler(doe_test_handler, []),
+    doe_event_mgr:notify_subs([node()], {dummy_event}),
+    sleep(100),
+    ?assertMatch({dummy_event}, doe_test_handler:get_last_event()).
+
 
 % test the transmission of the proper events: 1. new tree",
 test_event_new_tree() -> 
