@@ -11,6 +11,7 @@
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
+-include_lib("eunit/include/eunit.hrl").
 
 %% --------------------------------------------------------------------
 %% External exports
@@ -49,6 +50,7 @@ handle_event({new_tree, TreeID, Options}, State) ->
 
 handle_event({remote_add_obj, ObjId, AreaSpec, Extra}, State) ->
     doe_ets:remote_add_obj(ObjId, AreaSpec, Extra),
+    ?debugFmt("handle_event(remote_add_obj, ~p, ~p, ~p) was called.~n", [ObjId, AreaSpec, Extra]),
     {ok, State};
 
 handle_event({remove_obj, ObjId, AreaSpec}, State) ->
@@ -73,8 +75,11 @@ handle_event({local_new_tree, _TreeId, _Options}, State) -> {ok, State};
 handle_event({local_new_obj, _ObjId, _AreaSpec, _Extra}, State) ->{ok, State};
 handle_event({local_leave_area, _ObjId, _AreaSpec}, State) -> {ok, State};
 handle_event({local_enter_area, _ObjId, _AreaSpec}, State) -> {ok, State};
-handle_event({local_update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, State) -> {ok, State}.
+handle_event({local_update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, State) -> {ok, State};
 
+handle_event(Event, State) ->
+    ?debugFmt("unknown event ~p called~n", [Event]),
+    {ok, State}.
 %% --------------------------------------------------------------------
 %% Func: handle_call/2
 %% Returns: {ok, Reply, State}                                |

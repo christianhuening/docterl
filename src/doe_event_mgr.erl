@@ -81,6 +81,7 @@ add_obj(ObjId, AreaSpec, Extra) ->
     gen_event:notify(?SERVER, {local_new_obj, ObjId, AreaSpec, Extra}),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
     lists:map(fun(Sub) -> 
+                      ?debugFmt("notifying remote_add_obj for ~p~n", [Sub]),
                       gen_event:notify({Sub, ?SERVER}, 
                                        {remote_add_obj, ObjId, AreaSpec, Extra}) 
               end, 
