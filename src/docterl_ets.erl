@@ -21,7 +21,7 @@
 %% --------------------------------------------------------------------
 %% External exports
 -export([new_tree/0, new_tree/1, add_obj/3, remove_obj/1, 
-         update_position/4, get_obj/1, add_handler/1, set_extra/2, get_extra/1, 
+         update_position/4, get_obj/1, get_members/1, add_handler/1, set_extra/2, get_extra/1, 
          start_app/1]).
 
 %% doe_event_mgr delegates. Helps hide the implementation details.
@@ -114,7 +114,7 @@ remove_obj(ObjId) ->
 %% TODO: check for position interval ( <code>0 &lt; pos &lt; 1.0</code> ) and size
 %%
 -spec update_position(TreeId::tree_id(), ObjId::obj_id(), 
-                      NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, AreaSpec::area_spec()} | {error, term()}.
+                      NewPos::vec_3d(), NewBBSize::vec_3d()) -> {ok, NewAreaSpec::area_spec()} | {error, term()}.
 update_position(TreeId, ObjId, NewPos, NewBBSize) -> 
     case (catch doe_ets:update_position(TreeId, ObjId, NewPos, NewBBSize)) of
         {ok, AreaSpec} ->   % the area was not changed. 
@@ -131,6 +131,17 @@ update_position(TreeId, ObjId, NewPos, NewBBSize) ->
 
 -spec get_obj(ObjId::obj_id()) -> {ok, AreaSpec::area_spec()} | {error, unknown_id} | {error, term()}.
 get_obj(ObjId) -> doe_ets:get_obj(ObjId).
+
+%%
+%% @doc retrieve all objects in an area
+%%
+%% <p>the returned error <tt>invalid_spec</tt> does not signify that no data
+%% was registered for the area. It will only be returned if the spec cannot be parsed.
+%% </p>
+%%
+-spec get_members(AreaSpecs::area_spec()) -> {ok, [ObjId::obj_id()]} | {error, invalid_spec}.
+get_members(AreaSpec) -> doe_ets:get_members(AreaSpec).
+
 
 
 %% --------------------------------------------------------------------
