@@ -69,7 +69,7 @@ unsubscribe(AreaSpec, Node) ->
 new_tree(TreeId, Options) -> 
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_new_tree, TreeId, Options}),
-    % ?debugMsg("local notification sent"),
+%%  ?debugMsg("local notification sent"),
     % then the others, as this may take some time.
     gen_server:abcast(erlang:nodes(), doe_ets, {remote_new_tree, TreeId, Options}).
 
@@ -117,7 +117,7 @@ remove_obj(ObjId, AreaSpec) ->
 
 notify_subs(Subscribers, Event) ->
     lists:map(fun(Sub) -> 
-                      ?debugFmt("sending event ~p for ~p~n", [Event, Sub]),
+%%                       ?debugFmt("sending event ~p for ~p~n", [Event, Sub]),
                       gen_event:notify({?SERVER, Sub}, Event) 
               end, 
               Subscribers).

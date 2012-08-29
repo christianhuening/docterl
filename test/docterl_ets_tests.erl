@@ -65,8 +65,7 @@ test_remove_obj() ->
     docterl_ets:remove_obj(ObjId),
     ?assertMatch({error, unknown_id}, docterl_ets:get_obj(ObjId)),
     {ok, Members} = doe_ets:get_members(AreaSpec),
-    ?assertNot(lists:member(ObjId, Members)),
-    ?debugHere.
+    ?assertNot(lists:member(ObjId, Members)).
 
 test_set_get_extra() ->
     Pos = {0.1, 0.1, 0.1},
@@ -84,8 +83,14 @@ test_root() ->
     ?assertEqual([1], catch docterl_ets:root([1,2,3,4,5,6])).
 
 test_children() ->
-    % TOOO!!!!
-ok.
+    ?assertMatch([[1,0,0],
+                  [1,0,1],
+                  [1,0,2],
+                  [1,0,3],
+                  [1,0,4],
+                  [1,0,5],
+                  [1,0,6],
+                  [1,0,7]], catch docterl_ets:children([1,0])).
 
 test_parent() ->
     ?assertEqual(invalid_area, catch docterl_ets:parent([])),
