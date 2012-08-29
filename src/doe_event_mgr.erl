@@ -83,7 +83,7 @@ add_obj(ObjId, AreaSpec) -> add_obj(ObjId, AreaSpec, []).
 add_obj(ObjId, AreaSpec, Extra) ->
     % ?debugFmt("notifying of add_obj for ~p in ~p~n", [ObjId, AreaSpec]),
     % notify the local event handler first
-    gen_event:notify(?SERVER, {local_new_obj, ObjId, AreaSpec, Extra}),
+    gen_event:notify(?SERVER, {local_add_obj, ObjId, AreaSpec, Extra}),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
     notify_subs(Subscribers, {remote_add_obj, ObjId, AreaSpec, Extra}).
 

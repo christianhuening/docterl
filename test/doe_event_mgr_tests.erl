@@ -77,7 +77,7 @@ test_event_new_obj() ->
     doe_event_mgr:subscribe([TreeId, 0, 0]),
     {ok, ObjId, [TreeId, 0, 0]} = docterl_ets:add_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
     sleep(100),
-    ?assertEqual({local_new_obj, ObjId, [TreeId, 0, 0], []}, doe_test_handler:get_last_event()).
+    ?assertEqual({local_add_obj, ObjId, [TreeId, 0, 0], []}, doe_test_handler:get_last_event()).
 
 % test the transmission of the proper events: 3. update obj position (same area)
 test_event_update_area() -> 

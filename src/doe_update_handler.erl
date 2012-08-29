@@ -70,9 +70,13 @@ handle_event({leave_area, ObjId, AreaSpec}, State) ->
 handle_event({update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, State) ->
     {ok, State};
 
+%
+% these are NoOps as the operation has already been performed. The events
+% exists mainly for use by applications using the docterl lib.
+%
 handle_event({local_remove_obj, _ObjId, _AreaSpec}, State) -> {ok, State};
 handle_event({local_new_tree, _TreeId, _Options}, State) -> {ok, State};
-handle_event({local_new_obj, _ObjId, _AreaSpec, _Extra}, State) ->{ok, State};
+handle_event({local_add_obj, _ObjId, _AreaSpec, _Extra}, State) ->{ok, State};
 handle_event({local_leave_area, _ObjId, _AreaSpec}, State) -> {ok, State};
 handle_event({local_enter_area, _ObjId, _AreaSpec}, State) -> {ok, State};
 handle_event({local_update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, State) -> {ok, State};
