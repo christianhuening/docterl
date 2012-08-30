@@ -2,7 +2,7 @@
  [
   {description, ""},
   {vsn, "1"},
-  {registered, []},
+  {registered, [doe_event_mgr, doe_ets]},
   {applications, [
                   kernel,
                   stdlib
