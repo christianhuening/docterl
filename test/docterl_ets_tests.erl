@@ -42,6 +42,7 @@ utility_funcs_test_() ->
               ok
               end,
       fun(_Args) -> [?_test(test_root()),
+                     ?_test(test_is_root()),
                      ?_test(test_children()),
                      ?_test(test_parent())]
                      end
@@ -77,10 +78,17 @@ test_set_get_extra() ->
 
 
 test_root() ->
-    ?assertEqual(invalid_area, catch docterl_ets:root([])),
-    ?assertEqual(invalid_area, catch docterl_ets:root(atom)),
+    ?assertThrow(invalid_area, docterl_ets:root([])),
+    ?assertThrow(invalid_area, docterl_ets:root(atom)),
     ?assertEqual([1], catch docterl_ets:root([1])),
     ?assertEqual([1], catch docterl_ets:root([1,2,3,4,5,6])).
+
+test_is_root() ->
+    ?assertThrow(invalid_area, docterl_ets:is_root([])),
+    ?assertThrow(invalid_area, docterl_ets:is_root(atom)),
+    ?assertEqual(true, docterl_ets:is_root([1])),
+    ?assertEqual(false, docterl_ets:is_root([1,2])),
+    ?assertEqual(false, docterl_ets:is_root([1,2,3,4,5,6])).
 
 test_children() ->
     ?assertMatch([[1,0,0],

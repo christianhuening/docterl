@@ -29,7 +29,7 @@
 
 %% Utility functions for tree navigation. These allow hiding the implementation
 %% details of the tree.
--export([parent/1, children/1, root/1]).
+-export([parent/1, children/1, root/1, is_root/1]).
 
 
 %% ====================================================================
@@ -223,5 +223,21 @@ root([X| _RestSpec]) -> [X]; % only the tree-id
 
 root(_) ->  throw(invalid_area).
 
+%% --------------------------------------------------------------------
+%% @doc check if this is the root of the area spec
+%%
+%% return true if AreaSpec is the root of a tree, false otherwise.
+%%
+%% @throws invalid_area if this is not valid area spec
+%% @end
+%% --------------------------------------------------------------------
+-spec is_root(AreaSpec::area_spec()) -> true | false.
+is_root([]) -> throw(invalid_area);
+
+is_root([_X]) -> true;
+
+is_root([_X| _RestS]) -> false; 
+
+is_root(_) ->  throw(invalid_area).
 
 
