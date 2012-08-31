@@ -22,15 +22,14 @@
 %% External exports
 -export([new_tree/0, new_tree/1, add_obj/3, remove_obj/1, 
          update_position/4, get_obj/1, get_members/1, add_handler/1, set_extra/2, get_extra/1, 
-         start_app/1,
+         start_app/1]).
 
-         %% doe_event_mgr delegates. Helps hide the implementation details.
-         subscribe/1, subscribe/2, unsubscribe/1, unsubscribe/2,
+%% doe_event_mgr delegates. Helps hide the implementation details.
+-export([subscribe/1, subscribe/2, unsubscribe/1, unsubscribe/2]).
 
-         %% Utility functions for tree navigation. These allow hiding the implementation
-         %% details of the tree.
-         parent/1, children/1, root/1
-        ]).
+%% Utility functions for tree navigation. These allow hiding the implementation
+%% details of the tree.
+-export([parent/1, children/1, root/1]).
 
 
 %% ====================================================================

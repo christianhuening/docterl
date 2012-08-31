@@ -5,7 +5,11 @@
 %%
 -include_lib("eunit/include/eunit.hrl").
 
--export([do_update/5]).
+-define(DEF_SIZE,      0.000001).
+-define(DEF_OBSRANGE,  0.0001).
+-define(DEF_MOVE_STEP, 0.00001).
+
+-export([do_update/5, do_update_func/4]).
 
 info_test_() -> 
     { setup, fun() -> ok end, 
@@ -72,7 +76,8 @@ simple_benchmark_test_() ->
              ok
      end,
      fun(Args) -> [?_test(test_run_a_thousand_updates(Args)),
-                   ?_test(test_run_a_thousand_different_updates(Args))]              
+                   ?_test(test_run_a_thousand_different_updates(Args)),
+                   ?_test(test_run_a_thousand_random_updates(Args))]              
      end 
     }.
 
@@ -119,9 +124,17 @@ test_subscribe_unsubscribe() ->
 
 test_make_area(_Args) ->
 %%     ?debugMsg("starting make_area_test"),
-    TestCases = [
+    TestCases = [{{0.585702840753962, 0.8471973103830974, 0.7459485676749666},
+                  {1.0e-6,1.0e-6,1.0e-6},
+                  [1,7,2,4,7,6,5,4,1,7,7]},                 
                  {{0.000001, 0.000001, 0.000001}, 
                   {0.9999, 0.9999, 0.9999}, 
+                  [1]},
+                 {{1.1, 1.1, 1.1}, 
+                  {0.1, 0.1, 0.1}, 
+                  [1]},
+                 {{0.1, 0.1, 0.1}, 
+                  {1.0, 1.0, 1.0}, 
                   [1]},
                  {{0.1, 0.1, 0.1}, 
                   {0.16, 0.16, 0.16}, 
@@ -217,38 +230,74 @@ test_run_a_thousand_different_updates(_PId) ->
              10000),
     doe_ets:remove_obj(ObjId).
 
+test_run_a_thousand_random_updates(_PId) ->
+%%     ?debugMsg("starting run_a_thousand_random_updates_test"),
+    {ok, TreeId} = doe_ets:new_tree([]),
+    {ok, ObjId, _} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, ?DEF_SIZE),
+    test_avg_func(doe_ets_tests, 
+             do_update_func, 
+             [TreeId, ObjId, ?DEF_SIZE],
+             {0.1, 0.1, 0.1},   % start position  
+             fun(OldPos) -> vec_inc(OldPos, move_step()) end,
+             10000),
+    doe_ets:remove_obj(ObjId).
+
 
 %% ====================================================================
 %% utility functions for tests
 %% ====================================================================
 
+move_step() -> 
+    Theta =  2 * math:pi() * random:uniform(), Phi = 2 * math:pi() * random:uniform(),
+    
+    X = ?DEF_MOVE_STEP * math:sin(Theta) * math:cos(Phi),
+    Y = ?DEF_MOVE_STEP * math:sin(Theta) * math:sin(Phi),
+    Z = ?DEF_MOVE_STEP * math:cos(Theta),
+    {X,Y,Z}.
+
+
 do_make_area_test({Position, BBSize, Expected}) -> 
       Ret = doe_ets:make_area_code(1, Position, BBSize, 10),
-%%      ?debugFmt("generated : ~p~n", [Ret]).
+%%       ?debugFmt("generated : ~p~n", [Ret]),
       ?assertEqual(Expected, Ret),
       true.
 
 do_update(Count, TreeId, ObjId, NewPos, NewSize) ->
-		doe_ets:update_position(TreeId, ObjId, vec_inc(NewPos, 2.0e-5 * Count), NewSize).
+        doe_ets:update_position(TreeId, ObjId, vec_inc(NewPos, 2.0e-5 * Count), NewSize).
 
-vec_inc({Vec1, Vec2, Vec3}, Inc) ->
-		{Vec1+Inc,Vec2+Inc,Vec3+Inc}.
+
+do_update_func(NewPos, TreeId, ObjId, NewSize) ->
+        doe_ets:update_position(TreeId, ObjId, NewPos, NewSize).
+
+vec_inc({Px, Py, Pz}, {Sx, Sy, Sz}) ->
+        {max(1.0, Px + Sx), max(1.0, Py + Sy), max(1.0, Pz + Sz)};
+
+vec_inc({Vec1, Vec2, Vec3}, Inc) when is_float(Inc)->
+        {Vec1+Inc,Vec2+Inc,Vec3+Inc}.
 
 test_avg(M, F, A, N) when N > 0 ->
-    L = test_loop(M, F, A, N, []),
+    L = test_loop(M,F,A,N,[]),
+    test_calc(L).
+
+test_avg_func(M,F,A,L,G,N) when N > 0 ->
+    ResList = test_loop_func(M, F, A, L, G, N, []),
+    test_calc(ResList).
+
+
+test_calc(L) -> 
     Length = length(L),
     Min = lists:min(L),
     Max = lists:max(L),
     Med = lists:nth(round((Length / 2)), lists:sort(L)),
     Avg = round(lists:foldl(fun(X, Sum) -> X + Sum end, 0, L) / Length),
     ?debugFmt("Range: ~b - ~b mics~n"
-          "Median: ~b mics~n"
-          "Average: ~b mics~n",
-          [Min, Max, Med, Avg]),
+              "Median: ~b mics~n"
+              "Average: ~b mics~n",
+                      [Min, Max, Med, Avg]),
     io:format("Range: ~b - ~b mics~n"
-          "Median: ~b mics~n"
-          "Average: ~b mics~n",
-          [Min, Max, Med, Avg]),
+              "Median: ~b mics~n"
+              "Average: ~b mics~n",
+                      [Min, Max, Med, Avg]),
     Med.
 
 test_loop(_M, _F, _A, 0, List) ->
@@ -256,6 +305,13 @@ test_loop(_M, _F, _A, 0, List) ->
 test_loop(M, F, A, N, List) ->
     {T, _Result} = timer:tc(M, F, [N|A]),
     test_loop(M, F, A, N - 1, [T|List]).
+
+test_loop_func(_M, _F, _A, _L, _G, 0, List) ->
+    List;
+test_loop_func(M, F, A, L, G, N, List) ->
+    FrontArg = erlang:apply(G, [L]),
+    {T, _Result} = timer:tc(M, F, [FrontArg|A]),
+    test_loop_func(M, F, A, FrontArg, G, N - 1, [T|List]).
 
 %% sleep for number of miliseconds
 sleep(T) ->

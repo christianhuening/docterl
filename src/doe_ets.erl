@@ -23,7 +23,10 @@
 
 -include("../include/docterl.hrl").
 
--define(MAX_DEPTH_DEFAULT, 10).
+-define(DEFAULT_MAX_DEPTH, 10).
+
+-define(DEFAULT_TIMEOUT, infinity).
+
 
 -record(state, {trees_tid, areas_tid, objs_tid}).
 
@@ -79,7 +82,7 @@ stop() -> Ret = gen_server:cast(?MODULE, {stop}),
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 -spec new_tree(Options::list()) -> {ok, pos_integer()} | {error | term()}.
-new_tree(Options) -> gen_server:call(?MODULE, {new_tree, Options}).
+new_tree(Options) -> gen_server:call(?MODULE, {new_tree, Options}, ?DEFAULT_TIMEOUT).
 
 %% --------------------------------------------------------------------
 %% Function: new_obj/3
@@ -89,34 +92,52 @@ new_tree(Options) -> gen_server:call(?MODULE, {new_tree, Options}).
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 -spec new_obj(TreeId :: pos_integer(), Position :: vec_3d(),
-              BBSize :: vec_3d()) -> 
+              BBSize :: vec_3d() | float()) -> 
                  {ok, ObjId :: pos_integer(), AreaSpec :: list()}
                   | {error, term()}.
-new_obj(TreeId, Position, BBSize) ->
-    gen_server:call(?MODULE, {new_obj, TreeId, Position, BBSize}).
+new_obj(TreeId, Position, BBSize) when is_float(BBSize) ->
+    gen_server:call(?MODULE, 
+                    {new_obj, TreeId, Position, {BBSize,BBSize,BBSize}}, 
+                    ?DEFAULT_TIMEOUT);
+new_obj(TreeId, Position, {Sx,Sy,Sz}) ->
+    gen_server:call(?MODULE, 
+                    {new_obj, TreeId, Position, {Sx,Sy,Sz}}, 
+                    ?DEFAULT_TIMEOUT);
+new_obj(_TreeId, _Position, _Size) -> 
+    {error, invalid_pos_or_size}.
 
 -spec get_obj(ObjId::pos_integer()) -> 
           {ok, AreaSpec::area_spec()} | {error, unknown_id} | {error, Reason::term()}.
-get_obj(ObjId) -> gen_server:call(?MODULE, {get_obj, ObjId}).
+get_obj(ObjId) -> gen_server:call(?MODULE, {get_obj, ObjId}, ?DEFAULT_TIMEOUT).
 
 %% the area spec is returned for use by the event mechanism
 -spec remove_obj(ObjId::pos_integer()) -> 
           {ok, AreaSpec::area_spec()} | {error, invalid_id} | {error, Reason::term()}.
 remove_obj(ObjId) ->
-    gen_server:call(?MODULE, {remove_obj, ObjId}).
+    gen_server:call(?MODULE, {remove_obj, ObjId},?DEFAULT_TIMEOUT).
 
 -spec update_position(TreeId::pos_integer(), ObjId::pos_integer(), 
-                      NewPos::vec_3d(), NewBBSize::vec_3d()) -> 
+                      NewPos::vec_3d(), NewBBSize::vec_3d() | float()) -> 
           {ok, AreaSpec::list()} | {ok, OldAreaSpec::list(), NewAreaSpec::list()} | {error, term()}.
-update_position(TreeId, ObjId, NewPos, NewBBSize) -> 
-    gen_server:call(?MODULE, {update_position, TreeId, ObjId, NewPos, NewBBSize}).
+update_position(TreeId, ObjId, NewPos, NewBBSize) when is_float(NewBBSize) -> 
+    gen_server:call(?MODULE, 
+                    {update_position, TreeId, ObjId, NewPos, {NewBBSize, NewBBSize, NewBBSize}},
+                    ?DEFAULT_TIMEOUT);
+update_position(TreeId, ObjId, NewPos, {Sx, Sy, Sz}) -> 
+    gen_server:call(?MODULE, 
+                    {update_position, TreeId, ObjId, NewPos, {Sx, Sy, Sz}}, 
+                    ?DEFAULT_TIMEOUT);
+update_position(_TreeId, _ObjId, _NewPos, _NewSize) ->
+    {error, invalid_pos_or_size}.
 
 -spec get_members(AreaSpec::list()) -> {ok, Members::list()} | {error, term()}.
-get_members(AreaSpec) -> gen_server:call(?MODULE, {get_members, AreaSpec}).
+get_members(AreaSpec) -> gen_server:call(?MODULE, 
+                                         {get_members, AreaSpec},
+                                         ?DEFAULT_TIMEOUT).
 
 
 -spec get_subscribers(AreaSpec::area_spec()) -> {ok, Subsribers::list()} | {error, term()}.
-get_subscribers(AreaSpec) -> gen_server:call(doe_ets, {get_subscribers, AreaSpec}).
+get_subscribers(AreaSpec) -> gen_server:call(doe_ets, {get_subscribers, AreaSpec}, ?DEFAULT_TIMEOUT).
 
 
 %% should only be called internally by doe_event_mgr
@@ -138,20 +159,20 @@ enter_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_enter_area, ObjI
 -spec remote_add_obj(ObjId::pos_integer(), AreaSpec::list(), Extra::term()) -> 
           ok | {error, term()}.
 remote_add_obj(ObjId, AreaSpec, Extra) -> 
-    gen_server:call(?MODULE, {remote_add_obj, ObjId, AreaSpec, Extra}).
+    gen_server:call(?MODULE, {remote_add_obj, ObjId, AreaSpec, Extra}, ?DEFAULT_TIMEOUT).
 
 %% should only be called internally by doe_event_mgr
 -spec remove_obj(ObjId::obj_id(), AreaSpec::area_spec()) -> 
           ok | {error, invalid_id} | {error, Reason::term()}.
 remove_obj(ObjId, AreaSpec) ->
-    gen_server:call(?MODULE, {remove_obj, ObjId, AreaSpec}).
+    gen_server:call(?MODULE, {remove_obj, ObjId, AreaSpec}, ?DEFAULT_TIMEOUT).
 
 
 -spec set_extra(ObjId::obj_id, Extra::term()) -> ok.
 set_extra(ObjId, Extra) -> gen_server:cast(?MODULE, {set_extra, ObjId, Extra}).
 
 -spec get_extra(ObjId::obj_id()) -> {ok, term()} | {error, term()}.
-get_extra(ObjId) -> gen_server:call(?MODULE, {get_extra, ObjId}).
+get_extra(ObjId) -> gen_server:call(?MODULE, {get_extra, ObjId}, ?DEFAULT_TIMEOUT).
 
 
 -spec subscribe(AreaSpec::area_spec(), Node::atom()) -> ok.
@@ -385,7 +406,7 @@ max_depth_opt(Options) ->
     case opt(max_depth, Options) of
         {ok, MD_Val} ->
             MD_Val;
-        _ -> ?MAX_DEPTH_DEFAULT
+        _ -> ?DEFAULT_MAX_DEPTH
     end.
 
 opt(Op, [{Op, Value}|_]) ->
@@ -397,13 +418,14 @@ opt(_, []) ->
 
 
 % compute the path to the area
+make_area_code(TreeId, {Px,_,_},{Sx,_,_},_) when (Px + Sx) > 1.0 -> [TreeId];
+make_area_code(TreeId, {_,Py,_},{_,Sy,_},_) when (Py + Sy) > 1.0 -> [TreeId];
+make_area_code(TreeId, {_,_,Pz},{_,_,Sz},_) when (Pz + Sz) > 1.0 -> [TreeId];
 make_area_code(TreeId, Position, BBSize, MaxDepth) -> 
-	%% TODO: check that position and/or bbsize are not greater than 1.0
 	AreaSpec = make_area_code_step([], {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}, Position, BBSize, MaxDepth),
-	%% TODO: test if list not empty
-  %% cut of the final value, it is an artefact of the termination criterion
-  [_Final|CorrectSpec] = AreaSpec,
-  [TreeId|lists:reverse(CorrectSpec)].
+    %% cut of the final value, it is an artifact of the termination criterion
+    [_Final|CorrectSpec] = AreaSpec,
+    [TreeId|lists:reverse(CorrectSpec)].
 
 
 %% Tree deeper than allowed? -> break
