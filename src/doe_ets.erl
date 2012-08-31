@@ -214,12 +214,18 @@ handle_call({new_tree, Options}, _From, State) ->
       NewId = do_make_tree(State#state.trees_tid, Options),
 	  {reply, {ok, NewId}, State};
 
-handle_call({new_obj, TreeId, Position, BBSize}, _From, State) ->	
-    [{TreeId, TreeOpts}] = ets:lookup(State#state.trees_tid, TreeId), % TODO: handle error
-    AreaSpec = make_area_code(TreeId, Position, BBSize, max_depth_opt(TreeOpts)),
-    ObjId = do_make_obj(State#state.objs_tid, AreaSpec),
-    do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
-    {reply, {ok, ObjId, AreaSpec}, State};
+handle_call({new_obj, TreeId, Position, BBSize}, _From, State) ->
+    case (catch ets:lookup(State#state.trees_tid, TreeId)) of
+        [{TreeId, TreeOpts}] -> 
+            AreaSpec = make_area_code(TreeId, Position, BBSize, max_depth_opt(TreeOpts)),
+            ObjId = do_make_obj(State#state.objs_tid, AreaSpec),
+            do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
+            {reply, {ok, ObjId, AreaSpec}, State};        
+        [] -> 
+            {reply, {error, unknown_tree_id}, State};        
+        Unknown -> 
+            {reply, {error, Unknown}, State} 
+    end;
 
 % TODO: assert that obj id has not been used before
 handle_call({remote_new_Obj, ObjId, AreaSpec, Extra}, _From, State) ->

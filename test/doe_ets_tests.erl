@@ -191,6 +191,7 @@ test_make_new_obj_id(_PId) ->
 
 test_create_and_remove_obj() -> 
 %%     ?debugMsg("starting create_and_remove_obj test"),
+    ?assertMatch({error, unknown_tree_id}, doe_ets:new_obj(-1, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1})),
     {ok, TreeId} = doe_ets:new_tree([]),
     {ok, ObjId, _Spec1} = doe_ets:new_obj(TreeId, {0.1, 0.1, 0.1}, {0.1, 0.1, 0.1}),
     % ?debugFmt("Spec1: ~p~n", [Spec1]),
