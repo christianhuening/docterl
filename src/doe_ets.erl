@@ -228,7 +228,7 @@ handle_call({new_obj, TreeId, Position, BBSize}, _From, State) ->
     end;
 
 % TODO: assert that obj id has not been used before
-handle_call({remote_new_Obj, ObjId, AreaSpec, Extra}, _From, State) ->
+handle_call({remote_add_obj, ObjId, AreaSpec, Extra}, _From, State) ->
       ets:insert(State#state.objs_tid, {ObjId, AreaSpec, Extra}),
       do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
       {reply, ok, State};

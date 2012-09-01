@@ -56,7 +56,8 @@ internal_API_test_() ->
       ?_test(test_create_and_remove_obj()),
       ?_test(test_make_remote_new_tree()), 
       ?_test(test_create_and_get_obj()),
-      ?_test(test_subscribe_unsubscribe())
+      ?_test(test_subscribe_unsubscribe()),
+      ?_test(test_remote_operation())
      ]                    
     }.
 
@@ -178,6 +179,17 @@ test_make_remote_new_tree() ->
     sleep(100),
     ?assertEqual({ok, 3}, doe_ets:new_tree([])).
 
+test_remote_operation() -> 
+    {ok, TreeId} = doe_ets:new_tree([]),
+    {ok, ObjId, AreaSpec} = doe_ets:new_obj(TreeId, {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}),
+    NewObjId = ObjId + 1,
+    doe_ets:remote_add_obj(NewObjId, AreaSpec, [data]),
+    {ok, Members} = doe_ets:get_members(AreaSpec), 
+    ?assertMatch([], lists:subtract(Members, [ObjId, NewObjId])),
+    ?assertMatch({ok, AreaSpec}, doe_ets:get_obj(NewObjId)),
+    ?assertMatch({ok, [data]}, doe_ets:get_extra(NewObjId)).
+
+    
 test_make_new_obj_id(_PId) -> 
 %%     ?debugMsg("starting make_new_new test"),
     ObjsTId = ets:new(objs, [set]),
@@ -188,6 +200,7 @@ test_make_new_obj_id(_PId) ->
     ?assertEqual(3, doe_ets:make_new_id(ObjsTId)),
     ets:delete(ObjsTId).
 
+    
 
 test_create_and_remove_obj() -> 
 %%     ?debugMsg("starting create_and_remove_obj test"),

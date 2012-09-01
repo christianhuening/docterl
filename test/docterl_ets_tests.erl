@@ -80,7 +80,7 @@ test_set_get_extra() ->
 
 test_add_handler() -> 
     ?assertMatch(ok, docterl_ets:add_handler(doe_dummy_handler)),
-    ?assert(lists:member(doe_event_mgr, gen_event:which_handlers(doe_event_mgr))).
+    ?assert(lists:member(doe_dummy_handler, gen_event:which_handlers(doe_event_mgr))).
 
 
 test_root() ->
