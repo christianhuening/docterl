@@ -285,7 +285,7 @@ do_update_func(NewPos, TreeId, ObjId, NewSize) ->
         doe_ets:update_position(TreeId, ObjId, NewPos, NewSize).
 
 vec_inc({Px, Py, Pz}, {Sx, Sy, Sz}) ->
-        {max(1.0, Px + Sx), max(1.0, Py + Sy), max(1.0, Pz + Sz)};
+        {min(1.0, Px + Sx), min(1.0, Py + Sy), min(1.0, Pz + Sz)};
 
 vec_inc({Vec1, Vec2, Vec3}, Inc) when is_float(Inc)->
         {Vec1+Inc,Vec2+Inc,Vec3+Inc}.
