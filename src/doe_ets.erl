@@ -268,7 +268,11 @@ handle_call({get_subscribers, AreaSpec}, _From, State) ->
 		end;
 
 handle_call({get_members, AreaSpec}, _From, State) ->
-        {reply, {ok, ets:lookup_element(State#state.areas_tid, AreaSpec, 2)}, State};
+        case (catch ets:lookup(State#state.areas_tid, AreaSpec)) of
+            [] -> {reply, {ok, []}, State};
+            [{AreaSpec, Members, _Subscribers}] -> {reply, {ok, Members}, State};
+            Unknown -> {stop, {error, unknown_cause, Unknown}, State} 
+            end;
 
 handle_call({get_obj, ObjId}, _From, State) ->
         case (catch ets:lookup(State#state.objs_tid, ObjId)) of
