@@ -84,6 +84,8 @@ add_obj(ObjId, AreaSpec, Extra) ->
     % ?debugFmt("notifying of add_obj for ~p in ~p~n", [ObjId, AreaSpec]),
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_add_obj, ObjId, AreaSpec, Extra}),
+    %% subscribe me to this area, as I have an obj occupying it now.
+    doe_event_mgr:subscribe(AreaSpec),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
     notify_subs(Subscribers, {remote_add_obj, ObjId, AreaSpec, Extra}).
 
@@ -91,6 +93,12 @@ update_area(ObjId, OldAreaSpec, NewAreaSpec) ->
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_leave_area, ObjId, OldAreaSpec}),
     gen_event:notify(?SERVER, {local_enter_area, ObjId, NewAreaSpec}),
+    
+    %% sub me to the new
+    doe_event_mgr:subscribe(NewAreaSpec),
+    %% unsub me from the old
+    doe_event_mgr:subscribe(OldAreaSpec),
+
     OldSubscribers = gen_server:call(doe_ets, {get_subscribers, OldAreaSpec}),
     NewSubscribers = gen_server:call(doe_ets, {get_subscribers, NewAreaSpec}),
     notify_subs(OldSubscribers, {leave_area, ObjId, OldAreaSpec}),
@@ -107,6 +115,8 @@ update_position(ObjId, AreaSpec, NewPos, NewBBSize) ->
 remove_obj(ObjId, AreaSpec) -> 
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_remove_obj, ObjId, AreaSpec}),
+    %% TODO: was this the last of my objects? then unsubscribe me.
+    %%doe_event_mgr:unsubscribe(AreaSpec),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
     notify_subs(Subscribers, {remove_obj, ObjId, AreaSpec}).
     

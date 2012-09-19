@@ -56,7 +56,8 @@ internal_API_test_() ->
       ?_test(test_create_and_remove_obj()),
       ?_test(test_make_remote_new_tree()), 
       ?_test(test_create_and_get_obj()),
-      ?_test(test_subscribe_unsubscribe())
+      ?_test(test_subscribe_unsubscribe()),
+      ?_test(test_remote_operation())
      ]                    
     }.
 
@@ -178,6 +179,17 @@ test_make_remote_new_tree() ->
     sleep(100),
     ?assertEqual({ok, 3}, doe_ets:new_tree([])).
 
+test_remote_operation() -> 
+    {ok, TreeId} = doe_ets:new_tree([]),
+    {ok, ObjId, AreaSpec} = doe_ets:new_obj(TreeId, {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}),
+    NewObjId = ObjId + 1,
+    doe_ets:remote_add_obj(NewObjId, AreaSpec, [data]),
+    {ok, Members} = doe_ets:get_members(AreaSpec), 
+    ?assertMatch([], lists:subtract(Members, [ObjId, NewObjId])),
+    ?assertMatch({ok, AreaSpec}, doe_ets:get_obj(NewObjId)),
+    ?assertMatch({ok, [data]}, doe_ets:get_extra(NewObjId)).
+
+    
 test_make_new_obj_id(_PId) -> 
 %%     ?debugMsg("starting make_new_new test"),
     ObjsTId = ets:new(objs, [set]),
@@ -188,6 +200,7 @@ test_make_new_obj_id(_PId) ->
     ?assertEqual(3, doe_ets:make_new_id(ObjsTId)),
     ets:delete(ObjsTId).
 
+    
 
 test_create_and_remove_obj() -> 
 %%     ?debugMsg("starting create_and_remove_obj test"),
@@ -197,9 +210,10 @@ test_create_and_remove_obj() ->
     % ?debugFmt("Spec1: ~p~n", [Spec1]),
     _Spec2 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.1, 0.1}),
     % ?debugFmt("Spec2: ~p~n", [Spec2]),
-    _Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
+    Spec3 = doe_ets:update_position(TreeId, ObjId, {0.1, 0.2, 0.3}, {0.1, 0.2, 0.3}),
 %%     ?debugFmt("Spec3: ~p~n", [Spec3]),
-    doe_ets:remove_obj(ObjId).
+    doe_ets:remove_obj(ObjId),
+    ?assertMatch({ok, []}, doe_ets:get_members(Spec3)).
 
 test_create_and_get_obj() ->
 %%     ?debugMsg("starting create_and_remove_obj test"),
@@ -271,7 +285,7 @@ do_update_func(NewPos, TreeId, ObjId, NewSize) ->
         doe_ets:update_position(TreeId, ObjId, NewPos, NewSize).
 
 vec_inc({Px, Py, Pz}, {Sx, Sy, Sz}) ->
-        {max(1.0, Px + Sx), max(1.0, Py + Sy), max(1.0, Pz + Sz)};
+        {min(1.0, Px + Sx), min(1.0, Py + Sy), min(1.0, Pz + Sz)};
 
 vec_inc({Vec1, Vec2, Vec3}, Inc) when is_float(Inc)->
         {Vec1+Inc,Vec2+Inc,Vec3+Inc}.

@@ -43,10 +43,10 @@ init([]) ->
 %%          {swap_handler, Args1, State1, Mod2, Args2} |
 %%          remove_handler
 %% --------------------------------------------------------------------
-handle_event({new_tree, _TreeId}, State) ->
+handle_event({new_tree, _TreeId, _Options}, State) ->
     {ok, State};
 
-handle_event({remote_add_obj, _ObjId, _AreaSpec}, State) ->
+handle_event({remote_add_obj, _ObjId, _AreaSpec, _Extra}, State) ->
     {ok, State};
 
 handle_event({enter_area, _ObjId, _AreaSpec}, State) ->
@@ -61,10 +61,10 @@ handle_event({update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, State) -
 handle_event({remove_obj, _ObjId, _AreaSpec}, State) -> 
     {ok, State};
 
-handle_event({local_add_obj, _ObjId, _AreaSpec}, State) ->
+handle_event({local_add_obj, _ObjId, _AreaSpec, _Extra}, State) ->
     {ok, State};
 
-handle_event({local_new_tree, _TreeId}, State) ->
+handle_event({local_new_tree, _TreeId, _Options}, State) ->
     {ok, State};
 
 handle_event({local_remove_obj, _ObjId, _AreaSpec}, State) -> {ok, State};
