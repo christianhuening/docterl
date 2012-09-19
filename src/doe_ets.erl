@@ -142,17 +142,17 @@ get_subscribers(AreaSpec) -> gen_server:call(doe_ets, {get_subscribers, AreaSpec
 
 %% should only be called internally by doe_event_mgr
 -spec remote_new_tree(TreeId :: pos_integer(), Options :: list()) -> 
-                         {ok, pos_integer()}  | {error  | term()}.
+                         {ok, pos_integer()}  | {error, term()}.
 remote_new_tree(TreeId, Options) -> gen_server:cast(?MODULE, {remote_new_tree, TreeId, Options}).
 
 %% should only be called internally by doe_event_mgr
 -spec leave_area(ObjId::pos_integer(), AreaSpec::list()) ->
-          ok | {error, term()}.
+          ok.
 leave_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_leave_area, ObjId, AreaSpec}).
 
 %% should only be called internally by doe_event_mgr
 -spec enter_area(ObjId::pos_integer(), AreaSpec::list()) ->
-          ok | {error, term()}.
+          ok.
 enter_area(ObjId, AreaSpec) -> gen_server:cast(?MODULE, {remote_enter_area, ObjId, AreaSpec}).
 
 %% should only be called internally by doe_event_mgr
@@ -467,7 +467,7 @@ make_area_code_step(AreaSpec, {MinPos1, MinPos2, MinPos3}, {MaxPos1, MaxPos2, Ma
 
 
 -spec calc_border(MinPos::float(), MaxPos::float(), ObjPos::float(), BBLen::float(), BitMult::pos_integer()) 
-        -> {pos_integer(), float(), float()} | error.
+        -> {0 | 1 | 2 | 4, float(), float()}.
 calc_border(MinPos, MaxPos, ObjPos, BBLen, BitMult) ->
     Center = ((MaxPos - MinPos) / 2) + MinPos,
 %	?debugFmt("MinPos: ~p, MaxPos: ~p, Center: ~p, ObjPos: ~p, ObjPos+BBLen: ~p, BitMult: ~p~n", 
@@ -501,7 +501,7 @@ do_make_obj(ObjsTId, AreaSpec) ->
 %% @throws invalid_area
 %% @end
 -spec do_area_remove_obj(AreasTId::integer(), AreasSpec::area_spec(), ObjId::pos_integer()) ->
-					ok.
+					true.
 do_area_remove_obj(AreasTId, AreaSpec, ObjId) ->
     case ets:lookup(AreasTId, AreaSpec) of
         [{AreaSpec, ObjList, _Subscribers}] ->
