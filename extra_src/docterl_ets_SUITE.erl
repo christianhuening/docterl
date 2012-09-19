@@ -170,7 +170,7 @@ test_test2(_Config) ->
     1 = 1.
 
 test_server_a(_Config) ->
-  io:format("this is server a talking").
+  io:format("this is server a talking running on node ~p", [node()]).
 
 test_server_b(_Config) ->
-  io:format("this is server b talking").
+  io:format("this is server b talking running on node ~p", [node()]).
