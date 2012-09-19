@@ -24,9 +24,6 @@
          update_position/4, get_obj/1, get_members/1, add_handler/1, set_extra/2, get_extra/1, 
          start_app/1]).
 
-%% doe_event_mgr delegates. Helps hide the implementation details.
--export([subscribe/1, subscribe/2, unsubscribe/1, unsubscribe/2]).
-
 %% Utility functions for tree navigation. These allow hiding the implementation
 %% details of the tree.
 -export([parent/1, children/1, root/1, is_root/1]).
@@ -169,19 +166,6 @@ get_extra(ObjId) -> doe_ets:get_extra(ObjId).
 add_handler(Handler) -> doe_event_mgr:add_handler(Handler, []).
 
 
--spec subscribe(AreaSpec::area_spec(), Node::node()) -> ok.
-subscribe(AreaSpec, Node) -> doe_event_mgr:subscribe(AreaSpec, Node).
-
--spec subscribe(AreaSpec::area_spec()) -> ok.
-subscribe(AreaSpec) -> doe_event_mgr:subscribe(AreaSpec).
-
--spec unsubscribe(AreaSpec::area_spec(), Node::node()) -> ok.
-unsubscribe(AreaSpec, Node) -> doe_event_mgr:unsubscribe(AreaSpec, Node).
-
--spec unsubscribe(AreaSpec::area_spec()) -> ok.
-unsubscribe(AreaSpec) -> doe_event_mgr:unsubscribe(AreaSpec).
-
-
 %% --------------------------------------------------------------------
 %% @doc get the parent node of a given octree node
 %%
@@ -228,7 +212,7 @@ root(_) ->  throw(invalid_area).
 %%
 %% return true if AreaSpec is the root of a tree, false otherwise.
 %%
-%% @throws invalid_area if this is not valid area spec
+%% @throws invalid_area
 %% @end
 %% --------------------------------------------------------------------
 -spec is_root(AreaSpec::area_spec()) -> true | false.

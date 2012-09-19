@@ -81,12 +81,13 @@ add_obj(ObjId, AreaSpec) -> add_obj(ObjId, AreaSpec, []).
 % will be handled by the area update.
 %
 add_obj(ObjId, AreaSpec, Extra) ->
-    % ?debugFmt("notifying of add_obj for ~p in ~p~n", [ObjId, AreaSpec]),
+    ?debugFmt("notifying of add_obj for ~p in ~p~n", [ObjId, AreaSpec]),
     % notify the local event handler first
     gen_event:notify(?SERVER, {local_add_obj, ObjId, AreaSpec, Extra}),
     %% subscribe me to this area, as I have an obj occupying it now.
     doe_event_mgr:subscribe(AreaSpec),
     Subscribers = gen_server:call(doe_ets, {get_subscribers, AreaSpec}),
+    ?debugFmt("found following subscribers for ~p : ~p~n", [AreaSpec, Subscribers]),
     notify_subs(Subscribers, {remote_add_obj, ObjId, AreaSpec, Extra}).
 
 update_area(ObjId, OldAreaSpec, NewAreaSpec) -> 

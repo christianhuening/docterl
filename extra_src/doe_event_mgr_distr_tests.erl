@@ -20,25 +20,24 @@ multi_node_event_test_() ->
     { "test functions on multiple nodes.",
       setup,
       fun() ->
-              Nodes = ["server1"],
-              {_, Host} = split_node(node()),
-              Contacts = lists:map(fun(A) -> list_to_atom(A ++ "@" ++ Host) end, Nodes),
-              lists:map(fun net_adm:ping/1, Contacts),
+              Nodes = test_slave_starter:start(),
+              test_slave_starter:start_app_on_all(Nodes, docterl_ets),             
               application:start(docterl_ets),
-              Contacts
+              Nodes
             end,
-      fun(_Nodes) ->
-              application:stop(docterl_ets)
+      fun(Nodes) ->
+              application:stop(docterl_ets),
+              test_slave_starter:stop(Nodes)
       end,
       fun(Nodes) -> [
                  ?_test(test_basic_setup(Nodes)),
-                 ?_test(test_local_subscribe(Nodes)),
-                 ?_test(test_local_add_obj(Nodes))]
+                 ?_test(test_local_add_obj(Nodes)),
+                 ?_test(test_local_subscribe(Nodes))]
         end
       }.
 
 test_basic_setup(Nodes) ->
-    ?debugFmt("I am running on node ~p, connected to ~p. Setup for use in doe are: ~p~n", 
+    ?debugFmt("I am running on node ~p, connected to ~p. Setup for use in doe are: ~p", 
               [node(), nodes(), Nodes]).
 
 
@@ -50,9 +49,9 @@ test_local_subscribe(Remotes) ->
     AreaSpec = [TreeId],
     doe_event_mgr:subscribe(AreaSpec),
 %%     ?assertEqual([Node], doe_ets:get_subscribers(AreaSpec)),
-    lists:map(fun(Remote) -> checkRemotes(Remote, AreaSpec, [Node]) end, Remotes).
+    lists:map(fun(Remote) -> checkRemoteSubscribers(Remote, AreaSpec, [Node]) end, Remotes).
 
-checkRemotes(Remote, AreaSpec, Subscribers) -> 
+checkRemoteSubscribers(Remote, AreaSpec, Subscribers) ->
      case (catch rpc:call(Remote, doe_ets, get_subscribers, [AreaSpec])) of
          RemoteSubs when is_list(RemoteSubs) -> 
              ?assertEqual(Subscribers, RemoteSubs);         
@@ -64,49 +63,102 @@ checkRemotes(Remote, AreaSpec, Subscribers) ->
              ?assert(false)
      end.
 
+checkRemoteTree(Remote, TreeId) -> 
+     case (catch rpc:call(Remote, doe_ets, get_tree_ids, [])) of
+         RemoteTreeIds when is_list(RemoteTreeIds) -> 
+             ?assert(lists:member(TreeId, RemoteTreeIds));         
+         {badrpc, nodedown} -> 
+             ?debugFmt("node down: ~p~n", [Remote]),
+             ?assert(false);             
+         Unknown -> 
+             ?debugFmt("recieved unknown error: ~p~n",[Unknown]),
+             ?assert(false)
+     end.
+
 %
-% have a remote node subscribe to this doe_ets, than create a new tree and a new object localy
+% have a remote node subscribe to this doe_ets, than create a new object localy
 % 
 test_local_add_obj(Remotes) ->
     Position = {0.1, 0.1, 0.1},
-    Position2 = {0.1, 0.1, 0.1000001},
+    SlavePositions = [{0.1, 0.1, 0.1000001}, {0.1, 0.1, 0.1000002}],
     BBSize = {0.16, 0.16, 0.16},
     AreaSpecRem = [0],
-    [Remote|_Rest] = Remotes,
     
     {ok, TreeId} = docterl_ets:new_tree(),
-    case (catch rpc:call(Remote, doe_ets, subscribe, [[TreeId|AreaSpecRem], node()])) of
-        ok -> ok;               
-        {badrpc, nodedown} -> 
-            ?debugFmt("node down: ~p~n", [Remote]),
-            ?assert(false);             
-        Unknown -> 
-            ?debugFmt("recieved unknown error: ~p~n",[Unknown]),
-            ?assert(false)
-    end,
+    
+    %% TODO: this code should be run on a differing area spec, as to not interfere with the object
+    %%       and tree creation.
+%%     lists:map(fun(Remote) ->
+%%                       case (catch rpc:call(Remote, doe_ets, subscribe, [[TreeId|AreaSpecRem], node()])) of
+%%                           ok -> ok;               
+%%                           {badrpc, nodedown} -> 
+%%                               ?debugFmt("node down: ~p~n", [Remote]),
+%%                               ?assert(false);             
+%%                           Unknown -> 
+%%                               ?debugFmt("recieved unknown error: ~p~n",[Unknown]),
+%%                               ?assert(false)
+%%                       end
+%%               end, Remotes),
+%%     
+%%     %% verfify subscription
+%%     lists:map(fun(Remote) -> checkRemotes(Remote, [TreeId|AreaSpecRem], [node()]) end, Remotes),
+
+    %%     %% verfify tree id
+    lists:map(fun(Remote) -> checkRemoteTree(Remote, TreeId) end, Remotes),
+
+    
+    %% add local handler
     case (catch gen_event:add_handler(doe_event_mgr, doe_test_handler, [])) of
         ok -> ok;
         Unknown2 -> 
-            ?debugFmt("recieved unknown error: ~p for node~p~n",[Unknown2, Remote]),
+            ?debugFmt("recieved unknown error: ~p for add ing test handler",[Unknown2]),
             ?assert(false)                  
     end,
-    docterl_ets:add_obj(TreeId, Position, BBSize),
+    
+    %% add remote handlers
+    lists:map(fun(Node) -> 
+                      case (catch gen_event:add_handler({doe_event_mgr, Node}, doe_test_handler, [])) of
+                          ok -> ok;
+                          Unknown3 -> 
+                              ?debugFmt("recieved unknown error: ~p for add ing test handler on node ~p",
+                                        [Unknown3, Node]),
+                              ?assert(false)                  
+                      end
+              end, Remotes),
+    
+    ?assertMatch({ok, _ObjID, _AreaSpec}, docterl_ets:add_obj(TreeId, Position, BBSize)),
     sleep(100),
-    ?assertMatch({local_new_obj, 1, [TreeId, 0], []}, doe_test_handler:get_last_event()),
-    case (catch rpc:call(Remote, docterl_ets, add_obj, [TreeId, Position2, BBSize])) of
-        {ok, NewObjId, AreaSpec2} -> 
-            ?debugFmt("return: ~p~n", [{ok,NewObjId,AreaSpec2}]),
-            sleep(100),
-            ?debugFmt("local handlers: ~p~n", [gen_event:which_handlers(doe_event_mgr)]),
-            ?debugFmt("remote handlers: ~p~n", [gen_event:which_handlers({doe_event_mgr, Remote})]),
-            ?assertMatch({remote_add_obj, NewObjId, [TreeId, 0], []}, doe_test_handler:get_last_event());               
-        {badrpc, nodedown} -> 
-            ?debugFmt("node down: ~p~n", [Remote]),
-            ?assert(false);             
-        Unknown3 -> 
-            ?debugFmt("recieved unknown error: ~p~n",[Unknown3]),
-            ?assert(false)
-    end,    
+
+    %% add remote objects
+    lists:map(fun({Node, Pos}) ->
+                        rpc:call(Node, docterl_ets, add_obj, [TreeId, Pos, BBSize])                      
+                      end, 
+              lists:zip(Remotes, SlavePositions)),
+
+    %% check local
+    ?assertMatch({local_add_obj, 1, [TreeId|AreaSpecRem], []}, doe_test_handler:get_last_event()),
+    
+    %% check remote
+    lists:map(fun(Node) ->
+                      ?assertMatch({remote_add_obj, 1, [TreeId|AreaSpecRem], []}, 
+                                   doe_test_handler:get_last_event(Node))
+                      end, Remotes),
+    
+    %% check that the events arrived on the remotes
+%%     case (catch rpc:call(Remote, docterl_ets, add_obj, [TreeId, Position2, BBSize])) of
+%%         {ok, NewObjId, AreaSpec2} -> 
+%%             ?debugFmt("return: ~p~n", [{ok,NewObjId,AreaSpec2}]),
+%%             sleep(100),
+%%             ?debugFmt("local handlers: ~p~n", [gen_event:which_handlers(doe_event_mgr)]),
+%%             ?debugFmt("remote handlers: ~p~n", [gen_event:which_handlers({doe_event_mgr, Remote})]),
+%%             ?assertMatch({remote_add_obj, NewObjId, [TreeId, 0], []}, doe_test_handler:get_last_event());               
+%%         {badrpc, nodedown} -> 
+%%             ?debugFmt("node down: ~p~n", [Remote]),
+%%             ?assert(false);             
+%%         Unknown3 -> 
+%%             ?debugFmt("recieved unknown error: ~p~n",[Unknown3]),
+%%             ?assert(false)
+%%     end,    
     ok.
 
 %% sleep for number of miliseconds
@@ -114,11 +166,4 @@ sleep(T) ->
     receive 
         after T -> ok 
     end.
-
-
-split_node(Node) when is_atom(Node) ->
-   split_node(atom_to_list(Node), []).
-split_node([], UseAsHost )    -> { [], UseAsHost };
-split_node([ $@ | T ], Node ) -> { Node, T };
-split_node([ H | T ], Node )  -> split_node(T,  Node ++ [H] ).
 

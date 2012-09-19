@@ -14,7 +14,7 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([get_last_event/0]).
+-export([get_last_event/0, get_last_event/1]).
 
 %% gen_event callbacks
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2, code_change/3]).
@@ -26,6 +26,8 @@
 %% ====================================================================
 
 get_last_event() -> gen_event:call(doe_event_mgr, doe_test_handler, {get_last_event}).
+
+get_last_event(Node) -> gen_event:call({doe_event_mgr, Node}, doe_test_handler, {get_last_event}).
 
 %% ====================================================================
 %% Server functions
@@ -45,7 +47,7 @@ init([]) ->
 %%          remove_handler
 %% --------------------------------------------------------------------
 handle_event(Event, State) ->
-%%      ?debugFmt("setting last_event to ~p~n", [Event]),
+     ?debugFmt("setting last_event to ~p on ~p~n", [Event, node()]),
     {ok, State#state{last_event=Event}}.
 
 %% --------------------------------------------------------------------

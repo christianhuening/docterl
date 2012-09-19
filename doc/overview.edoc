@@ -1,0 +1,31 @@
+** this is the overview.doc file for the application 'docterl' **
+
+   @author Lutz Behnke <lutz.behnke@gmx.de>
+   @copyright 2012 Lutz Behnke
+   @version 0.0.1
+   @title docterl -- Distributed OCTree in ERLang
+   @doc <tt>docterl</tt> is an implementation of an octree that replicates between multiple nodes,
+   each only story part of the data set.
+   
+   <p><tt>docterl</tt> supports the parallel management of multiple trees. The 
+   size of the cube held by each tree is normalized to <pre>{0.1, 0.1, 0.1}</pre>, 
+   i.e. the norm cube.</p>  
+   
+   <h2>Terms:</h2>
+   <p>In order to distinguish between an Erlang node and a node in the octree, 
+   the later are in the following referred to as <em>areas</em>. Each area is 
+   uniquely identified by an area specification, an <tt>AreaSpec</tt></p>
+   
+   
+    
+   <h2>Notes:</h2>
+   
+   
+   <p>nodes subscribe to events from other nodes for that area if they hold 
+   objects in that area. External applications may register event listener
+   to recieve events on changes in an area. Nodes hold complete copies of 
+   occupied areas, updated through events sent by subscribed nodes</p>
+
+   <p></p>
+   
+   

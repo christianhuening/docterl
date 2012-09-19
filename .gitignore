@@ -5,5 +5,4 @@ priv
 *.beam
 *.plt
 /erl_crash.dump
-/doc
 /dictionary.dict

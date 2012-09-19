@@ -176,10 +176,12 @@ get_extra(ObjId) -> gen_server:call(?MODULE, {get_extra, ObjId}, ?DEFAULT_TIMEOU
 
 
 -spec subscribe(AreaSpec::area_spec(), Node::atom()) -> ok.
-subscribe(AreaSpec, Node) -> gen_server:cast(?MODULE, {subscribe, AreaSpec, Node}).
+subscribe(AreaSpec, Node) -> 
+    gen_server:cast(?MODULE, {subscribe, AreaSpec, Node}).
 
 -spec unsubscribe(AreaSpec::area_spec(), Node::atom()) -> ok.
-unsubscribe(AreaSpec, Node) -> gen_server:cast(?MODULE, {unsubscribe, AreaSpec, Node}).
+unsubscribe(AreaSpec, Node) -> 
+    gen_server:cast(?MODULE, {unsubscribe, AreaSpec, Node}).
 
 %% ====================================================================
 %% Server functions
@@ -325,14 +327,16 @@ handle_cast({subscribe, AreaSpec, Node}, State) ->
     case (catch ets:lookup(Tid, AreaSpec)) of
         [] -> 
             ets:insert(Tid, {AreaSpec, [], [Node]}),
-            {noreply, State};
+            Result = {noreply, State};
         [{AreaSpec, _ObjList, OldSubs}] -> 
             NewList = lists:usort([Node|OldSubs]),
             ets:update_element(Tid, AreaSpec, [{3, NewList}]),
-            {noreply, State};
+            Result = {noreply, State};
         Unknown ->  
-            {stop, {error, unknown_cause, Unknown}, State}  
-    end;
+            Result = {stop, {error, unknown_cause, Unknown}, State}  
+    end,
+    ?debugFmt("subscribing ~p to ~p resulted in ~p", [Node, AreaSpec, Result]),
+    Result;
 
 handle_cast({unsubscribe, AreaSpec, Node}, State) ->
     Tid = State#state.areas_tid,
