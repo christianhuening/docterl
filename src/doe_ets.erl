@@ -284,21 +284,22 @@ handle_call({get_obj, ObjId}, _From, State) ->
         case (catch ets:lookup(State#state.objs_tid, ObjId)) of
             [{ObjId, AreaSpec, _Extra}] -> {reply, {ok, AreaSpec}, State};
             [] -> {reply, {error, unknown_id}, State};
-            Other -> {reply, {error, Other}}
+            Other -> {reply, {error, Other}, State}
         end;
 
 handle_call({get_extra, ObjId}, _From, State) ->
         case ets:lookup(State#state.objs_tid, ObjId) of
             [{ObjId, _AreaSpec, Extra}] -> {reply, {ok, Extra}, State};
             [] -> {reply, {error, unknown_id}, State};
-            Other -> {reply, {error, Other}}
+            Other -> {reply, {error, Other}, State}
         end;
 
 handle_call({get_tree_ids}, _From, State) ->
-    ets:foldl(fun({TreeId, Options}, Acc) ->
-                      [TreeId, Acc]
+    TreeIds = ets:foldl(fun({TreeId, _Options}, Acc) ->
+                      [TreeId| Acc]
                       end, 
-              [], State#state.trees_tid);
+              [], State#state.trees_tid),
+    {reply, TreeIds, State};
 
 handle_call(Request, _From, State) ->
     ?debugFmt("unknown request: ~p~n", [Request]),

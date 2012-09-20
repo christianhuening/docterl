@@ -54,6 +54,7 @@ internal_API_test_() ->
      end,
      [
       ?_test(test_create_and_remove_obj()),
+      ?_test(test_make_new_tree()),
       ?_test(test_make_remote_new_tree()), 
       ?_test(test_create_and_get_obj()),
       ?_test(test_subscribe_unsubscribe()),
