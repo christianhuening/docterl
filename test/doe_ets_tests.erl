@@ -103,6 +103,11 @@ test_start_stop(_Foo) ->
 test_subscribe_unsubscribe() ->
     AreaSpec= [1,2,3],
     AreaSpec2 = [1,2],
+    
+     %% add object, thus make area known, otherwise doe_ets will ignore subscribtion
+    doe_ets:remote_add_obj(1, AreaSpec, []),
+    doe_ets:remote_add_obj(2, AreaSpec2, []),
+    
     doe_ets:subscribe(AreaSpec, node1),
     ?assertEqual([node1], doe_ets:get_subscribers(AreaSpec)),
     doe_ets:subscribe(AreaSpec, node2),

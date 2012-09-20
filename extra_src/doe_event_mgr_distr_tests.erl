@@ -7,6 +7,13 @@
  -module(doe_event_mgr_distr_tests).
 
 %%
+%% The following tests need to be done:
+%%
+%% - add a node to a cluster, that allready contains a number of trees 
+%%   (currently adding nodes is not supported)
+%%
+%% 
+%%
 %% Include files
 %%
 -include_lib("eunit/include/eunit.hrl").
@@ -31,8 +38,9 @@ multi_node_event_test_() ->
       end,
       fun(Nodes) -> [
                  ?_test(test_basic_setup(Nodes)),
-                 ?_test(test_local_add_obj(Nodes)),
                  ?_test(test_create_tree(Nodes)),
+                 ?_test(test_local_add_obj(Nodes)),
+                 ?_test(test_event_handling(Nodes)),
                  ?_test(test_local_subscribe(Nodes))]
         end
       }.
@@ -43,17 +51,28 @@ test_basic_setup(Nodes) ->
 
 test_create_tree(Nodes) ->
     {ok, TreeId} = docterl_ets:new_tree(),
-    lists:map(fun(Remote) -> checkRemoteTree(Remote, TreeId) end, Nodes).
+    lists:map(fun(Remote) -> checkRemoteTree(Remote, TreeId) end, Nodes),
+%%     ?debugFmt("tree Id transported successfully to all nodes: ~p~n", [TreeId]),
+    ok.
 
-test_local_subscribe(Remotes) ->
-    Node = node(),
+
+%%
+%% TODO: currently this tests nothing of value.
+%%
+%% the subscribtions are suppressed, as the areas are not 
+%% populated and thus subscriptions are ignored. 
+%% 
+test_local_subscribe(_Remotes) ->
+    _Node = node(),
     {ok, TreeId} = docterl_ets:new_tree(),
 %%     ?debugFmt("done new_tree: ~p~n", [TreeId]),
 
     AreaSpec = [TreeId],
+    
     doe_event_mgr:subscribe(AreaSpec),
 %%     ?assertEqual([Node], doe_ets:get_subscribers(AreaSpec)),
-    lists:map(fun(Remote) -> checkRemoteSubscribers(Remote, AreaSpec, [Node]) end, Remotes).
+%%     lists:map(fun(Remote) -> checkRemoteSubscribers(Remote, AreaSpec, [Node]) end, Remotes),
+    ok.
 
 checkRemoteSubscribers(Remote, AreaSpec, Subscribers) ->
      case (catch rpc:call(Remote, doe_ets, get_subscribers, [AreaSpec])) of
@@ -80,7 +99,7 @@ checkRemoteTree(Remote, TreeId) ->
      end.
 
 %
-% have a remote node subscribe to this doe_ets, than create a new object localy
+% add remote objects to a given area, than add locally, to see if objects are correctly transfered
 % 
 test_local_add_obj(Remotes) ->
     Position = {0.1, 0.1, 0.1},
@@ -89,28 +108,45 @@ test_local_add_obj(Remotes) ->
     AreaSpecRem = [0],
     
     {ok, TreeId} = docterl_ets:new_tree(),
+    TestArea = [TreeId|AreaSpecRem],
     
-    %% TODO: this code should be run on a differing area spec, as to not interfere with the object
-    %%       and tree creation.
-%%     lists:map(fun(Remote) ->
-%%                       case (catch rpc:call(Remote, doe_ets, subscribe, [[TreeId|AreaSpecRem], node()])) of
-%%                           ok -> ok;               
-%%                           {badrpc, nodedown} -> 
-%%                               ?debugFmt("node down: ~p~n", [Remote]),
-%%                               ?assert(false);             
-%%                           Unknown -> 
-%%                               ?debugFmt("recieved unknown error: ~p~n",[Unknown]),
-%%                               ?assert(false)
-%%                       end
-%%               end, Remotes),
-%%     
-%%     %% verfify subscription
-%%     lists:map(fun(Remote) -> checkRemotes(Remote, [TreeId|AreaSpecRem], [node()]) end, Remotes),
-
-    %%     %% verfify tree id
-    lists:map(fun(Remote) -> checkRemoteTree(Remote, TreeId) end, Remotes),
-
+    %% add the observer objects to the other nodes.
+    RemoteObjIds = 
+        lists:map(fun({Node, Position}) -> 
+                          {ok, ObjId, AreaSpec} = 
+                              rpc:call(Node, docterl_ets, add_obj, [TreeId, Position, BBSize]),
+                          ?assertEqual(TestArea, AreaSpec),
+                          ObjId
+                  end, 
+                  lists:zip(Remotes, SlavePositions)),
     
+    sleep(100),
+        
+    {ok, LocalObjId, _AreaSpec} = docterl_ets:add_obj(TreeId, Position, BBSize),
+    
+    ?debugFmt("the object ids are: ~p (TODO: they should be unique)",[[LocalObjId|RemoteObjIds]]),
+    ?assertMatch([_A, _B, _C], [LocalObjId|RemoteObjIds]),
+    
+    sleep(1000),
+
+   ?assertMatch({ok, [_A, _B, _C]},docterl_ets:get_members(TestArea)),
+
+    {ok, RetrievedObjIds} = docterl_ets:get_members(TestArea),
+    
+    ?assertEqual([], lists:subtract([LocalObjId|RemoteObjIds], 
+                                    RetrievedObjIds)),
+    ?debugMsg("objects successully transferred"),
+    ok.
+
+test_event_handling(Remotes) ->
+    Position = {0.1, 0.1, 0.1},
+    SlavePositions = [{0.1, 0.1, 0.1000001}, {0.1, 0.1, 0.1000002}],
+    BBSize = {0.16, 0.16, 0.16},
+    AreaSpecRem = [0],
+    
+    {ok, TreeId} = docterl_ets:new_tree(),
+    TestArea = [TreeId|AreaSpecRem],
+
     %% add local handler
     case (catch gen_event:add_handler(doe_event_mgr, doe_test_handler, [])) of
         ok -> ok;
@@ -140,11 +176,11 @@ test_local_add_obj(Remotes) ->
               lists:zip(Remotes, SlavePositions)),
 
     %% check local
-    ?assertMatch({local_add_obj, 1, [TreeId|AreaSpecRem], []}, doe_test_handler:get_last_event()),
+    ?assertMatch({local_add_obj, 1, TestArea, []}, doe_test_handler:get_last_event()),
     
     %% check remote
     lists:map(fun(Node) ->
-                      ?assertMatch({remote_add_obj, 1, [TreeId|AreaSpecRem], []}, 
+                      ?assertMatch({remote_add_obj, 1, TestArea, []}, 
                                    doe_test_handler:get_last_event(Node))
                       end, Remotes),
     

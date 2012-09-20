@@ -26,6 +26,7 @@ start_link() ->
 init([]) ->
     DocterlTable = ?CHILD(doe_ets, worker),
     DocterlEvent = ?CHILD(doe_event_mgr, worker),
+    DocterlIDMgr = ?CHILD(doe_id_mgr, worker),
     RestartStrategy = {one_for_one, 5, 10},
-    {ok, { RestartStrategy, [DocterlTable, DocterlEvent]} }.
+    {ok, { RestartStrategy, [DocterlTable, DocterlEvent, DocterlIDMgr]} }.
 

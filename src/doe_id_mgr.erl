@@ -2,76 +2,101 @@
 %%% Author  : sage
 %%% Description :
 %%%
-%%% Created : 13.08.2012
+%%% Created : 20.09.2012
 %%% -------------------------------------------------------------------
--module(doe_test_handler).
+-module(doe_id_mgr).
 
--behaviour(gen_event).
+-behaviour(gen_server).
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
 -include_lib("eunit/include/eunit.hrl").
 
+-define(BLOCK_SIZE, 1000).
+
+-define(SERVER, ?MODULE).
+
+
 %% --------------------------------------------------------------------
 %% External exports
--export([get_last_event/0, get_last_event/1]).
+-export([start_link/0, get_obj_id_block/0, get_tree_id_block/0]).
 
-%% gen_event callbacks
--export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2, code_change/3]).
+%% gen_server callbacks
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--record(state, {last_event}).
+-record(state, {obj = 1, tree = 1}).
 
 %% ====================================================================
 %% External functions
 %% ====================================================================
+start_link() ->
+    gen_server:start_link({global, ?SERVER}, ?MODULE, [], []).
 
-get_last_event() -> gen_event:call(doe_event_mgr, doe_test_handler, {get_last_event}).
+get_obj_id_block() -> gen_server:call({global, ?SERVER}, {get_obj_id_block}).
 
-get_last_event(Node) -> gen_event:call({doe_event_mgr, Node}, doe_test_handler, {get_last_event}).
+get_tree_id_block() -> gen_server:call({global, ?SERVER}, {get_tree_id_block}).
+
 
 %% ====================================================================
 %% Server functions
 %% ====================================================================
+
 %% --------------------------------------------------------------------
-%% Func: init/1
+%% Function: init/1
+%% Description: Initiates the server
 %% Returns: {ok, State}          |
-%%          Other
+%%          {ok, State, Timeout} |
+%%          ignore               |
+%%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
     {ok, #state{}}.
 
 %% --------------------------------------------------------------------
-%% Func: handle_event/2
-%% Returns: {ok, State}                                |
-%%          {swap_handler, Args1, State1, Mod2, Args2} |
-%%          remove_handler
+%% Function: handle_call/3
+%% Description: Handling call messages
+%% Returns: {reply, Reply, State}          |
+%%          {reply, Reply, State, Timeout} |
+%%          {noreply, State}               |
+%%          {noreply, State, Timeout}      |
+%%          {stop, Reason, Reply, State}   | (terminate/2 is called)
+%%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_event(Event, State) ->
-%%      ?debugFmt("setting last_event to ~p on ~p~n", [Event, node()]),
-    {ok, State#state{last_event=Event}}.
+handle_call({get_tree_id_block}, _From, State) ->
+    CurrVal = State#state.tree,
+    Reply = {ok, CurrVal},
+    {reply, Reply, State#state{tree = CurrVal + ?BLOCK_SIZE}};
+
+handle_call({get_obj_id_block}, _From, State) ->
+    CurrVal = State#state.obj,
+    Reply = {ok, CurrVal},
+    {reply, Reply, State#state{obj = CurrVal + ?BLOCK_SIZE}}.
+
 
 %% --------------------------------------------------------------------
-%% Func: handle_call/2
-%% Returns: {ok, Reply, State}                                |
-%%          {swap_handler, Reply, Args1, State1, Mod2, Args2} |
-%%          {remove_handler, Reply}
+%% Function: handle_cast/2
+%% Description: Handling cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_call({get_last_event}, State) ->
-    {ok, State#state.last_event, State}.
+handle_cast(_Msg, State) ->
+    {noreply, State}.
 
 %% --------------------------------------------------------------------
-%% Func: handle_info/2
-%% Returns: {ok, State}                                |
-%%          {swap_handler, Args1, State1, Mod2, Args2} |
-%%          remove_handler
+%% Function: handle_info/2
+%% Description: Handling all non call/cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_info(_Info, State) ->
-    {ok, State}.
+    {noreply, State}.
 
 %% --------------------------------------------------------------------
-%% Func: terminate/2
-%% Purpose: Shutdown the server
-%% Returns: any
+%% Function: terminate/2
+%% Description: Shutdown the server
+%% Returns: any (ignored by gen_server)
 %% --------------------------------------------------------------------
 terminate(_Reason, _State) ->
     ok.

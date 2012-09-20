@@ -337,16 +337,17 @@ handle_cast({subscribe, AreaSpec, Node}, State) ->
     Tid = State#state.areas_tid,
     case (catch ets:lookup(Tid, AreaSpec)) of
         [] -> 
-            ets:insert(Tid, {AreaSpec, [], [Node]}),
-            Result = {noreply, State};
+            %% if we don't have data about this node, we don't care about it.
+            Result = {noreply, State}; 
         [{AreaSpec, _ObjList, OldSubs}] -> 
             NewList = lists:usort([Node|OldSubs]),
             ets:update_element(Tid, AreaSpec, [{3, NewList}]),
+            spawn(fun() -> do_send_area_state(Tid, AreaSpec, Node) end),
             Result = {noreply, State};
         Unknown ->  
             Result = {stop, {error, unknown_cause, Unknown}, State}  
     end,
-    ?debugFmt("subscribing ~p to ~p resulted in ~p", [Node, AreaSpec, Result]),
+%%     ?debugFmt("subscribing ~p to ~p resulted in ~p", [Node, AreaSpec, Result]),
     Result;
 
 handle_cast({unsubscribe, AreaSpec, Node}, State) ->
@@ -530,14 +531,28 @@ do_area_remove_obj(AreasTId, AreaSpec, ObjId) ->
     end.
     
 do_area_add_obj(AreasTId, AreaSpec, ObjId) ->
-		case ets:lookup(AreasTId, AreaSpec) of
-				[] ->                                 ObjsToWrite = [ObjId], SubsToWrite = [];
-            
-				[{AreaSpec, ObjList, Subscribers}] -> ObjsToWrite = [ObjId|ObjList], SubsToWrite = Subscribers;
-            
-				Ret ->                                ?debugFmt("multiple Entries: ~p~n", [Ret]), 
-							                          ObjsToWrite = SubsToWrite = [],
-							                          throw(multiple_area_entries)
-		end,
+    case ets:lookup(AreasTId, AreaSpec) of
+        [] ->                                 ObjsToWrite = [ObjId], SubsToWrite = [];
+        
+        [{AreaSpec, ObjList, Subscribers}] -> ObjsToWrite = [ObjId|ObjList], SubsToWrite = Subscribers;
+        
+        Ret ->                                ?debugFmt("multiple Entries: ~p~n", [Ret]), 
+                                              ObjsToWrite = SubsToWrite = [],
+                                              throw(multiple_area_entries)
+    end,
     ets:insert(AreasTId, {AreaSpec, ObjsToWrite, SubsToWrite}).
+
+
+do_send_area_state(AreasTId, AreaSpec, Node) ->
+    case ets:lookup(AreasTId, AreaSpec) of
+        [] ->  
+            ok;
+        [{AreaSpec, ObjList, _Subscribers}] -> 
+            lists:map(fun(ObjId) -> 
+                      gen_server:cast({doe_ets, Node}, {remote_enter_area, ObjId, AreaSpec}) 
+              end, 
+              ObjList);
+        Ret ->                                ?debugFmt("multiple Entries: ~p~n", [Ret]), 
+                                              throw(multiple_area_entries)
+    end.
 
