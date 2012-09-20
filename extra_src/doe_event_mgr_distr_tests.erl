@@ -32,6 +32,7 @@ multi_node_event_test_() ->
       fun(Nodes) -> [
                  ?_test(test_basic_setup(Nodes)),
                  ?_test(test_local_add_obj(Nodes)),
+                 ?_test(test_create_tree(Nodes)),
                  ?_test(test_local_subscribe(Nodes))]
         end
       }.
@@ -40,6 +41,9 @@ test_basic_setup(Nodes) ->
     ?debugFmt("I am running on node ~p, connected to ~p. Setup for use in doe are: ~p", 
               [node(), nodes(), Nodes]).
 
+test_create_tree(Nodes) ->
+    {ok, TreeId} = docterl_ets:new_tree(),
+    lists:map(fun(Remote) -> checkRemoteTree(Remote, TreeId) end, Nodes).
 
 test_local_subscribe(Remotes) ->
     Node = node(),

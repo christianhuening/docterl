@@ -172,6 +172,10 @@ test_make_new_treeid() ->
     ?assertEqual(3, doe_ets:make_new_id(TreesTId)),
     ets:delete(TreesTId).
 
+test_make_new_tree() ->
+    ?assertMatch({ok, 1}, doe_ets:new_tree([])),
+    ?assertMatch([1], doe_ets:get_tree_ids()).
+    
 test_make_remote_new_tree() ->
     ?debugMsg("starting make_remote_new_tree_test"),
     ?assertEqual({ok, 1}, doe_ets:new_tree([])),

@@ -35,7 +35,7 @@
 %% External exports
 -export([start_link/0, stop/0, new_tree/1, remote_new_tree/2, remote_add_obj/3, new_obj/3, get_obj/1,
          remove_obj/1, remove_obj/2, get_subscribers/1, update_position/4, leave_area/2, enter_area/2, 
-         get_members/1, set_extra/2, get_extra/1, subscribe/2, unsubscribe/2]).
+         get_members/1, set_extra/2, get_extra/1, subscribe/2, unsubscribe/2, get_tree_ids/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -183,6 +183,10 @@ subscribe(AreaSpec, Node) ->
 unsubscribe(AreaSpec, Node) -> 
     gen_server:cast(?MODULE, {unsubscribe, AreaSpec, Node}).
 
+-spec get_tree_ids() -> [ pos_integer()].
+get_tree_ids() ->
+    gen_server:call(?MODULE, {get_tree_ids}).
+
 %% ====================================================================
 %% Server functions
 %% ====================================================================
@@ -289,6 +293,12 @@ handle_call({get_extra, ObjId}, _From, State) ->
             [] -> {reply, {error, unknown_id}, State};
             Other -> {reply, {error, Other}}
         end;
+
+handle_call({get_tree_ids}, _From, State) ->
+    ets:foldl(fun({TreeId, Options}, Acc) ->
+                      [TreeId, Acc]
+                      end, 
+              [], State#state.trees_tid);
 
 handle_call(Request, _From, State) ->
     ?debugFmt("unknown request: ~p~n", [Request]),
