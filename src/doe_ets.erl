@@ -28,7 +28,7 @@
 -define(DEFAULT_TIMEOUT, infinity).
 
 
--record(state, {trees_tid, areas_tid, objs_tid}).
+-record(state, {trees_tid, areas_tid, objs_tid, max_tree_id=0, max_obj_id=0}).
 
 
 %% --------------------------------------------------------------------
@@ -42,7 +42,7 @@
 
 -ifdef(TEST).
 %% export the private functions for testing only.
--export([make_area_code/4, make_area_code_step/6, make_new_id/1, 
+-export([make_area_code/4, make_area_code_step/6, make_new_id/2, 
          do_make_tree/2, do_make_obj/2]).
 -endif.
 
@@ -141,8 +141,7 @@ get_subscribers(AreaSpec) -> gen_server:call(doe_ets, {get_subscribers, AreaSpec
 
 
 %% should only be called internally by doe_event_mgr
--spec remote_new_tree(TreeId :: pos_integer(), Options :: list()) -> 
-                         {ok, pos_integer()}  | {error, term()}.
+-spec remote_new_tree(TreeId :: pos_integer(), Options :: list()) -> ok.
 remote_new_tree(TreeId, Options) -> gen_server:cast(?MODULE, {remote_new_tree, TreeId, Options}).
 
 %% should only be called internally by doe_event_mgr
@@ -217,16 +216,16 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({new_tree, Options}, _From, State) ->
-      NewId = do_make_tree(State#state.trees_tid, Options),
-	  {reply, {ok, NewId}, State};
+      {NewId, NewState} = do_make_tree(State, Options),
+	  {reply, {ok, NewId}, NewState};
 
 handle_call({new_obj, TreeId, Position, BBSize}, _From, State) ->
     case (catch ets:lookup(State#state.trees_tid, TreeId)) of
         [{TreeId, TreeOpts}] -> 
             AreaSpec = make_area_code(TreeId, Position, BBSize, max_depth_opt(TreeOpts)),
-            ObjId = do_make_obj(State#state.objs_tid, AreaSpec),
+            {ObjId, NewState} = do_make_obj(State, AreaSpec),
             do_area_add_obj(State#state.areas_tid, AreaSpec, ObjId),
-            {reply, {ok, ObjId, AreaSpec}, State};        
+            {reply, {ok, ObjId, AreaSpec}, NewState};        
         [] -> 
             {reply, {error, unknown_tree_id}, State};        
         Unknown -> 
@@ -411,10 +410,18 @@ do_precalc_update_position(State, ObjId, OldAreaSpec, NewAreaSpec) ->
 
 do_update_position(State, TreeId, ObjId, NewPos, NewBBSize) ->
     case ets:lookup(State#state.trees_tid, TreeId) of
-        [{TreeId, TreeOpts}] -> ok;
-        [] -> throw(invalid_key_id), TreeOpts = []
+        [{TreeId, TreeOpts}] -> 
+            ok;
+        [] -> 
+            throw(invalid_key_id), 
+            TreeOpts = [];
+        Other -> 
+            ?debugFmt("invalid return: ~p", [Other]), 
+            throw(invalid_treeid_table_state), 
+            TreeOpts = []
     end,
-    NewAreaSpec = make_area_code(TreeId, NewPos, NewBBSize, max_depth_opt(TreeOpts)),        
+    NewAreaSpec = make_area_code(TreeId, NewPos, NewBBSize, max_depth_opt(TreeOpts)), 
+%%     ?debugFmt("doing object lookup for ~p", [ObjId]),
     case ets:lookup(State#state.objs_tid, ObjId) of
         [{_, OldAreaSpec, _Extra}] when OldAreaSpec == NewAreaSpec ->   
             % ?debugFmt("area has not changed, just report success (~p, ~p)~n", [OldAreaSpec, NewAreaSpec]), 
@@ -424,7 +431,9 @@ do_update_position(State, TreeId, ObjId, NewPos, NewBBSize) ->
             % ?debugFmt("area has changed, send updates (~p, ~p)~n", [OldAreaSpec, NewAreaSpec]), 
             do_precalc_update_position(State, ObjId, OldAreaSpec, NewAreaSpec);
         
-        [] -> throw(invalid_obj_id)
+        [] -> 
+            ?debugFmt("no object found for I ~p", [ObjId]),
+            throw(invalid_obj_id)
     end.
 
 
@@ -499,20 +508,26 @@ calc_border(MinPos, MaxPos, ObjPos, BBLen, BitMult) ->
     end.
 
 %% this is neither fast nor can it be distributed, but it will work for now.
-make_new_id(TabId) -> ets:foldl(fun id_max/2, 0, TabId) + 1.
+-spec make_new_id(Type::(obj | tree), State::term()) -> {NewId::(obj_id() | tree_id()) , State::term()}.
+make_new_id(obj, State) ->
+    NewId = State#state.max_obj_id +1,
+    {NewId, State#state{max_obj_id = NewId}};
 
-id_max({Id, _}, Curr) -> max(Id, Curr);
-id_max({Id, _, _}, Curr) -> max(Id, Curr).
+make_new_id(tree, State) ->
+    NewId = State#state.max_tree_id +1,
+    {NewId, State#state{max_tree_id = NewId}}.
 
-do_make_tree(TreesTId, Options) ->
-    NewId = make_new_id(TreesTId),
+do_make_tree(State, Options) ->
+    TreesTId = State#state.trees_tid,
+    {NewId, NewState} = make_new_id(tree, State),
     ets:insert(TreesTId, {NewId, Options}),
-    NewId.
+    {NewId, NewState}.
 
-do_make_obj(ObjsTId, AreaSpec) ->
-    NewId = make_new_id(ObjsTId),
+do_make_obj(State, AreaSpec) ->
+    ObjsTId = State#state.objs_tid,
+    {NewId, NewState} = make_new_id(obj, State),
     ets:insert(ObjsTId, {NewId, AreaSpec, []}),
-    NewId.
+    {NewId, NewState}.
 
 %%
 %% @doc remove single object entry from the list of objects in area.

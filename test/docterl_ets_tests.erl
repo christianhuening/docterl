@@ -56,6 +56,7 @@ test_new_obj() ->
     Pos = {0.1, 0.1, 0.1},
     Size = {0.1, 0.1, 0.1},
     {ok, TreeId} = docterl_ets:new_tree([]),
+    ?debugFmt("TreeID is: ~p", [TreeId]),
     {ok, ObjId, AreaSpec} = docterl_ets:add_obj(TreeId, Pos, Size),
     ?assertMatch({ok, AreaSpec}, docterl_ets:get_obj(ObjId)).
 

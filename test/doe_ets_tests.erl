@@ -55,10 +55,33 @@ internal_API_test_() ->
      [
       ?_test(test_create_and_remove_obj()),
       ?_test(test_make_new_tree()),
-      ?_test(test_make_remote_new_tree()), 
       ?_test(test_create_and_get_obj()),
       ?_test(test_subscribe_unsubscribe()),
       ?_test(test_remote_operation())
+     ]                    
+    }.
+
+id_mgr_interaction_test_() -> 
+    {"check interactions with the id manager and signals from remote nodes",
+     foreach,
+     fun() ->
+             %% application:start(sasl),
+             IdMgrStart = doe_id_mgr:start_link(),
+             ?debugFmt("ID Mgr Start: ~p~n", [IdMgrStart]),
+             _StartRet = doe_ets:start_link(),
+             %% ?debugFmt("StartRet: ~p~n", [StartRet]),
+             ok
+     end,
+     fun(_PId) ->
+             %% application:stop(sasl),
+             doe_ets:stop(),
+%%              ?debugMsg("stopping doe_ets"),
+             doe_id_mgr:stop(),
+             sleep(100),
+             ok
+     end,
+     [
+      ?_test(test_make_remote_new_tree())
      ]                    
     }.
 
@@ -169,14 +192,14 @@ test_make_area(_Args) ->
     
 test_make_new_treeid() -> 
 %%     ?debugMsg("starting make_new_treeid_test"),
-    TreesTId = ets:new(trees, [set, {read_concurrency, true}]),
+    {ok, State1} = doe_ets:init([]),
     % ?debugMsg("do first make_new_id"),
-    ?assertEqual(1, doe_ets:make_new_id(TreesTId)),
-    doe_ets:do_make_tree(TreesTId, []),
-    ?assertEqual(2, doe_ets:make_new_id(TreesTId)),
-    doe_ets:do_make_tree(TreesTId, []),
-    ?assertEqual(3, doe_ets:make_new_id(TreesTId)),
-    ets:delete(TreesTId).
+    {TreeId1, State2} = doe_ets:make_new_id(tree, State1),
+    ?assertEqual(1, TreeId1),
+    {TreeId2, State3} = doe_ets:make_new_id(tree, State2),
+    ?assertEqual(2, TreeId2),
+    {TreeId3, _State4} = doe_ets:make_new_id(tree, State3),
+    ?assertEqual(3, TreeId3).
 
 test_make_new_tree() ->
     ?assertMatch({ok, 1}, doe_ets:new_tree([])),
@@ -186,7 +209,7 @@ test_make_remote_new_tree() ->
     ?debugMsg("starting make_remote_new_tree_test"),
     ?assertEqual({ok, 1}, doe_ets:new_tree([])),
     doe_ets:remote_new_tree(2, []),
-    sleep(100),
+    sleep(1000),
     ?assertEqual({ok, 3}, doe_ets:new_tree([])).
 
 test_remote_operation() -> 
@@ -201,14 +224,14 @@ test_remote_operation() ->
 
     
 test_make_new_obj_id(_PId) -> 
-%%     ?debugMsg("starting make_new_new test"),
-    ObjsTId = ets:new(objs, [set]),
-    ?assertEqual(1, doe_ets:make_new_id(ObjsTId)),
-    doe_ets:do_make_obj(ObjsTId, [1]),
-    ?assertEqual(2, doe_ets:make_new_id(ObjsTId)),
-    doe_ets:do_make_obj(ObjsTId, [1]),
-    ?assertEqual(3, doe_ets:make_new_id(ObjsTId)),
-    ets:delete(ObjsTId).
+%%     ?debugMsg("starting make_new_obj test"),
+    {ok, State1} = doe_ets:init([]),
+    {ObjId1, State2} = doe_ets:make_new_id(obj, State1),
+    ?assertEqual(1, ObjId1),
+    {ObjId2, State3} = doe_ets:make_new_id(obj, State2),
+    ?assertEqual(2, ObjId2),
+    {ObjId3, _State4} = doe_ets:make_new_id(obj, State3),
+    ?assertEqual(3, ObjId3).
 
     
 

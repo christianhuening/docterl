@@ -84,6 +84,7 @@ handle_event({local_update_position, _ObjId, _AreaSpec, _NewPos, _NewBBSize}, St
 handle_event(Event, State) ->
     ?debugFmt("unknown event ~p called~n", [Event]),
     {ok, State}.
+
 %% --------------------------------------------------------------------
 %% Func: handle_call/2
 %% Returns: {ok, Reply, State}                                |

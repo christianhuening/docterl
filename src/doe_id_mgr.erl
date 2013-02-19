@@ -19,7 +19,7 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/0, get_obj_id_block/0, get_tree_id_block/0]).
+-export([start_link/0, stop/0, get_obj_id_block/0, get_tree_id_block/0, get_block_size/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -30,12 +30,21 @@
 %% External functions
 %% ====================================================================
 start_link() ->
-    gen_server:start_link({global, ?SERVER}, ?MODULE, [], []).
+    case gen_server:start_link({global, ?SERVER}, ?MODULE, [], []) of
+        {ok, Pid} -> {ok, Pid};
+        ignore -> ignore;
+        {error, already_started, Pid} -> {ok, Pid};
+        {error, Reason} -> {error, Reason}
+    end.
 
+%% halt the server, mainly for test clean up
+stop() -> gen_server:call({global, ?SERVER}, {stop}).
+    
 get_obj_id_block() -> gen_server:call({global, ?SERVER}, {get_obj_id_block}).
 
 get_tree_id_block() -> gen_server:call({global, ?SERVER}, {get_tree_id_block}).
 
+get_block_size() -> 1.
 
 %% ====================================================================
 %% Server functions
@@ -50,7 +59,10 @@ get_tree_id_block() -> gen_server:call({global, ?SERVER}, {get_tree_id_block}).
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-    {ok, #state{}}.
+    case lists:member(doe_id_mgr, global:registered_names()) of
+        false -> {ok, #state{}};
+        true -> ignore % already registered
+    end.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -70,7 +82,10 @@ handle_call({get_tree_id_block}, _From, State) ->
 handle_call({get_obj_id_block}, _From, State) ->
     CurrVal = State#state.obj,
     Reply = {ok, CurrVal},
-    {reply, Reply, State#state{obj = CurrVal + ?BLOCK_SIZE}}.
+    {reply, Reply, State#state{obj = CurrVal + ?BLOCK_SIZE}};
+
+handle_call({stop}, _From, State) ->
+    {stop, normal, State}.
 
 
 %% --------------------------------------------------------------------

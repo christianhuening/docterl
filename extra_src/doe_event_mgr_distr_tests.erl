@@ -28,7 +28,9 @@ multi_node_event_test_() ->
       setup,
       fun() ->
               Nodes = test_slave_starter:start(),
-              test_slave_starter:start_app_on_all(Nodes, docterl_ets),             
+              SlaveAppResults = test_slave_starter:start_app_on_all(Nodes, docterl_ets),
+              ?debugFmt("Slave App Results: ~p", [SlaveAppResults]),
+              sleep(100),
               application:start(docterl_ets),
               Nodes
             end,
@@ -112,9 +114,9 @@ test_local_add_obj(Remotes) ->
     
     %% add the observer objects to the other nodes.
     RemoteObjIds = 
-        lists:map(fun({Node, Position}) -> 
+        lists:map(fun({Node, CurrPos}) -> 
                           {ok, ObjId, AreaSpec} = 
-                              rpc:call(Node, docterl_ets, add_obj, [TreeId, Position, BBSize]),
+                              rpc:call(Node, docterl_ets, add_obj, [TreeId, CurrPos, BBSize]),
                           ?assertEqual(TestArea, AreaSpec),
                           ObjId
                   end, 
