@@ -6,3 +6,4 @@ priv
 *.plt
 /erl_crash.dump
 /dictionary.dict
+/ebin
