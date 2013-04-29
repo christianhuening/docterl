@@ -7,3 +7,4 @@ priv
 /erl_crash.dump
 /dictionary.dict
 /ebin
+/logs

@@ -27,6 +27,7 @@
 
 -define(DEFAULT_TIMEOUT, infinity).
 
+-type tid() :: pos_integer().
 
 -record(state, {trees_tid, areas_tid, objs_tid, max_tree_id=0, max_obj_id=0}).
 

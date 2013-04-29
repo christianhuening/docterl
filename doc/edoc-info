@@ -1,0 +1,4 @@
+{application,docterl_ets}.
+{packages,[]}.
+{modules,[docterl_ets,docterl_ets_app,docterl_ets_sup,doe_dummy_handler,
+          doe_ets,doe_event_mgr,doe_update_handler]}.
